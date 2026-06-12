@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Vitosoli — L'assistant IA qui pense avec vous. Posez vos questions, obtenez des réponses claires, avancez plus vite.">
+<title>Vitosoli — L'IA qui pense avec vous</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #07070f;
+  --surface: #0f0f1c;
+  --surface2: #171728;
+  --border: rgba(255,255,255,0.06);
+  --text: #eeeaff;
+  --muted: #6b6b8a;
+  --p1: #7c5cfc;
+  --p2: #e040fb;
+  --p3: #00d4ff;
+  --grad: linear-gradient(135deg, #7c5cfc 0%, #e040fb 50%, #00d4ff 100%);
+  --grad-text: linear-gradient(135deg, #a78bfa, #f472b6, #38bdf8);
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg); color: var(--text);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── ORBS ── */
+.orb {
+  position: fixed; border-radius: 50%;
+  pointer-events: none; z-index: 0;
+  filter: blur(100px); opacity: .12;
+  animation: drift 20s ease-in-out infinite alternate;
+}
+.orb-a { width: 600px; height: 600px; top: -200px; right: -100px; background: radial-gradient(circle, #7c5cfc, transparent); animation-delay: 0s; }
+.orb-b { width: 500px; height: 500px; bottom: 20%; left: -150px; background: radial-gradient(circle, #e040fb, transparent); animation-delay: -7s; }
+.orb-c { width: 350px; height: 350px; top: 50%; right: 10%; background: radial-gradient(circle, #00d4ff, transparent); animation-delay: -14s; }
+@keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(30px, 20px) scale(1.05); } }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 48px;
+  background: rgba(7,7,15,0.7); backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none;
+}
+.nav-logo-icon {
+  width: 32px; height: 32px; border-radius: 9px;
+  background: var(--grad);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800;
+  color: #fff; flex-shrink: 0;
+}
+.nav-logo-name {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px;
+  background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.nav-links {
+  display: flex; align-items: center; gap: 32px;
+  list-style: none;
+}
+.nav-links a {
+  color: var(--muted); font-size: 14px; font-weight: 500;
+  text-decoration: none; transition: color .2s;
+}
+.nav-links a:hover { color: var(--text); }
+.nav-cta {
+  display: flex; align-items: center; gap: 10px;
+}
+.btn-ghost {
+  padding: 8px 18px; border-radius: 8px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text); font-size: 13px; font-weight: 500;
+  text-decoration: none; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: border-color .2s, background .2s;
+}
+.btn-ghost:hover { border-color: rgba(124,92,252,.4); background: rgba(124,92,252,.06); }
+.btn-primary {
+  padding: 9px 20px; border-radius: 8px;
+  border: none; background: var(--grad);
+  color: #fff; font-size: 13px; font-weight: 600;
+  text-decoration: none; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: opacity .2s, transform .15s;
+  white-space: nowrap;
+}
+.btn-primary:hover { opacity: .88; transform: translateY(-1px); }
+
+/* ── HERO ── */
+.hero {
+  position: relative; z-index: 1;
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 120px 24px 80px;
+}
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 14px; border-radius: 100px;
+  border: 1px solid rgba(124,92,252,.3);
+  background: rgba(124,92,252,.08);
+  font-size: 12px; font-weight: 600; color: #a78bfa;
+  letter-spacing: .04em; margin-bottom: 32px;
+}
+.hero-badge-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--p1); animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.5; transform:scale(.8)} }
+
+.hero h1 {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: clamp(40px, 7vw, 88px);
+  line-height: 1.05; letter-spacing: -.03em;
+  max-width: 800px; margin-bottom: 24px;
+}
+.hero h1 .line-grad {
+  background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  display: block;
+}
+
+.hero-sub {
+  font-size: clamp(16px, 2vw, 19px); color: var(--muted);
+  max-width: 520px; line-height: 1.65; margin-bottom: 44px;
+  font-weight: 300;
+}
+
+.hero-actions {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  justify-content: center; margin-bottom: 64px;
+}
+.btn-hero {
+  padding: 14px 32px; border-radius: 12px;
+  border: none; background: var(--grad);
+  color: #fff; font-size: 15px; font-weight: 600;
+  text-decoration: none; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: opacity .2s, transform .2s;
+  box-shadow: 0 8px 32px rgba(124,92,252,.3);
+}
+.btn-hero:hover { opacity: .9; transform: translateY(-2px); box-shadow: 0 12px 40px rgba(124,92,252,.4); }
+.btn-hero-ghost {
+  padding: 14px 28px; border-radius: 12px;
+  border: 1px solid var(--border); background: rgba(255,255,255,.03);
+  color: var(--text); font-size: 15px; font-weight: 500;
+  text-decoration: none; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: border-color .2s, background .2s;
+  display: flex; align-items: center; gap: 8px;
+}
+.btn-hero-ghost:hover { border-color: rgba(124,92,252,.3); background: rgba(124,92,252,.06); }
+
+/* ── CHAT PREVIEW ── */
+.chat-preview {
+  width: 100%; max-width: 620px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px; overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(124,92,252,.08);
+}
+.preview-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.02);
+}
+.preview-dot { width: 10px; height: 10px; border-radius: 50%; }
+.preview-dot:nth-child(1) { background: #ff5f57; }
+.preview-dot:nth-child(2) { background: #ffbd2e; }
+.preview-dot:nth-child(3) { background: #28ca41; }
+.preview-title {
+  margin: 0 auto; font-size: 12px; font-weight: 500; color: var(--muted);
+  letter-spacing: .03em;
+}
+.preview-messages { padding: 20px 18px; display: flex; flex-direction: column; gap: 14px; }
+
+.pmsg { display: flex; gap: 10px; }
+.pmsg.user { flex-direction: row-reverse; }
+.pmsg-avatar {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; margin-top: 2px;
+}
+.pmsg-avatar.ai { background: var(--grad); }
+.pmsg-avatar.user { background: var(--surface2); border: 1px solid var(--border); }
+.pmsg-bubble {
+  max-width: 80%; padding: 10px 13px; border-radius: 13px;
+  font-size: 13px; line-height: 1.6;
+}
+.pmsg.ai .pmsg-bubble {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-top-left-radius: 3px;
+}
+.pmsg.user .pmsg-bubble {
+  background: var(--grad); color: #fff;
+  border-bottom-right-radius: 3px;
+}
+.preview-input {
+  margin: 0 18px 18px;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 10px 8px 14px;
+}
+.preview-input-text { flex: 1; font-size: 12px; color: var(--muted); font-family: 'Inter', sans-serif; }
+.preview-send {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: var(--grad); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+
+/* ── SECTION BASE ── */
+section { position: relative; z-index: 1; }
+.section-inner { max-width: 1100px; margin: 0 auto; padding: 100px 24px; }
+
+/* ── FEATURES ── */
+.features-header { text-align: center; margin-bottom: 64px; }
+.section-label {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--p1); margin-bottom: 14px;
+}
+.section-title {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: clamp(28px, 4vw, 48px); letter-spacing: -.02em;
+  line-height: 1.1; margin-bottom: 16px;
+}
+.section-sub { font-size: 16px; color: var(--muted); max-width: 480px; margin: 0 auto; line-height: 1.65; }
+
+.features-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+}
+.feature-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 28px 24px;
+  transition: border-color .2s, transform .2s;
+}
+.feature-card:hover { border-color: rgba(124,92,252,.25); transform: translateY(-3px); }
+.feature-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: var(--surface2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; margin-bottom: 16px;
+}
+.feature-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; margin-bottom: 8px; }
+.feature-desc { font-size: 14px; color: var(--muted); line-height: 1.65; }
+
+/* ── HOW IT WORKS ── */
+.how-section { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+.how-step {
+  padding: 48px 36px; border-right: 1px solid var(--border);
+  transition: background .2s;
+}
+.how-step:last-child { border-right: none; }
+.how-step:hover { background: rgba(124,92,252,.03); }
+.how-num {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 48px;
+  background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  line-height: 1; margin-bottom: 16px; display: block;
+}
+.how-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; margin-bottom: 10px; }
+.how-desc { font-size: 14px; color: var(--muted); line-height: 1.65; }
+
+/* ── TESTIMONIALS ── */
+.testimonials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.testimonial-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 24px;
+}
+.testimonial-stars { color: #fbbf24; font-size: 13px; margin-bottom: 12px; letter-spacing: 2px; }
+.testimonial-text { font-size: 14px; line-height: 1.7; color: var(--text); margin-bottom: 16px; }
+.testimonial-author { display: flex; align-items: center; gap: 10px; }
+.testimonial-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--grad); display: flex; align-items: center;
+  justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;
+}
+.testimonial-name { font-size: 13px; font-weight: 600; }
+.testimonial-role { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+/* ── CTA FINAL ── */
+.cta-section {
+  text-align: center; padding: 120px 24px;
+}
+.cta-box {
+  max-width: 680px; margin: 0 auto;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 28px; padding: 64px 48px;
+  position: relative; overflow: hidden;
+}
+.cta-glow {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 0%, rgba(124,92,252,.12) 0%, transparent 70%);
+}
+.cta-box h2 {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: clamp(28px, 4vw, 44px); letter-spacing: -.02em;
+  line-height: 1.1; margin-bottom: 16px; position: relative; z-index: 1;
+}
+.cta-box p {
+  font-size: 16px; color: var(--muted); margin-bottom: 36px;
+  line-height: 1.65; position: relative; z-index: 1;
+}
+.cta-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; position: relative; z-index: 1; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border); position: relative; z-index: 1;
+  padding: 40px 48px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+}
+.footer-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+.footer-logo-icon {
+  width: 26px; height: 26px; border-radius: 7px;
+  background: var(--grad); display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: #fff;
+}
+.footer-logo-name {
+  font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px;
+  background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.footer-copy { font-size: 13px; color: var(--muted); }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a { font-size: 13px; color: var(--muted); text-decoration: none; transition: color .2s; }
+.footer-links a:hover { color: var(--text); }
+
+/* ── DIVIDER ── */
+.divider {
+  width: 1px; height: 60px; background: var(--border);
+  margin: 0 auto;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  nav { padding: 14px 20px; }
+  .nav-links { display: none; }
+  .features-grid { grid-template-columns: 1fr 1fr; }
+  .how-grid { grid-template-columns: 1fr; }
+  .how-step { border-right: none; border-bottom: 1px solid var(--border); }
+  .how-step:last-child { border-bottom: none; }
+  .testimonials-grid { grid-template-columns: 1fr; }
+  footer { flex-direction: column; align-items: flex-start; padding: 32px 20px; }
+}
+@media (max-width: 600px) {
+  .section-inner { padding: 64px 20px; }
+  .features-grid { grid-template-columns: 1fr; }
+  .cta-box { padding: 40px 24px; }
+  .hero-actions { flex-direction: column; width: 100%; }
+  .btn-hero, .btn-hero-ghost { width: 100%; justify-content: center; text-align: center; }
+}
+</style>
+</head>
+<body>
+
+<div class="orb orb-a"></div>
+<div class="orb orb-b"></div>
+<div class="orb orb-c"></div>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-icon">✦</div>
+    <span class="nav-logo-name">Vitosoli</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#fonctionnalites">Fonctionnalités</a></li>
+    <li><a href="#comment">Comment ça marche</a></li>
+    <li><a href="#avis">Avis</a></li>
+  </ul>
+  <div class="nav-cta">
+    <a href="chat-ia.html" class="btn-ghost">Se connecter</a>
+    <a href="chat-ia.html" class="btn-primary">Essayer gratuitement →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">
+    <div class="hero-badge-dot"></div>
+    Disponible maintenant — accès gratuit
+  </div>
+
+  <h1>
+    L'intelligence artificielle
+    <span class="line-grad">qui pense avec vous</span>
+  </h1>
+
+  <p class="hero-sub">
+    Posez vos questions, rédigez plus vite, résolvez des problèmes complexes. Vitosoli est votre assistant IA disponible 24h/24, dans la langue que vous préférez.
+  </p>
+
+  <div class="hero-actions">
+    <a href="chat-ia.html" class="btn-hero">Commencer maintenant — c'est gratuit</a>
+    <a href="#fonctionnalites" class="btn-hero-ghost">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="10 15 15 12 10 9"/></svg>
+      Voir comment ça marche
+    </a>
+  </div>
+
+  <!-- Chat preview -->
+  <div class="chat-preview">
+    <div class="preview-bar">
+      <div class="preview-dot"></div>
+      <div class="preview-dot"></div>
+      <div class="preview-dot"></div>
+      <span class="preview-title">Vitosoli — Assistant IA</span>
+    </div>
+    <div class="preview-messages">
+      <div class="pmsg user">
+        <div class="pmsg-avatar user">J</div>
+        <div class="pmsg-bubble">Aide-moi à rédiger un email pour relancer un client sans paraître insistant</div>
+      </div>
+      <div class="pmsg ai">
+        <div class="pmsg-avatar ai">✦</div>
+        <div class="pmsg-bubble">Voici une version qui reste professionnelle et chaleureuse :<br><br><strong>Objet :</strong> Suite à notre échange du [date]<br><br>Bonjour [Prénom],<br>J'espère que vous allez bien. Je me permets de revenir vers vous concernant notre proposition — avez-vous eu l'occasion d'y réfléchir ?<br>Je reste disponible pour répondre à vos questions. 😊</div>
+      </div>
+      <div class="pmsg user">
+        <div class="pmsg-avatar user">J</div>
+        <div class="pmsg-bubble">Parfait, peux-tu le rendre plus court ?</div>
+      </div>
+    </div>
+    <div class="preview-input">
+      <span class="preview-input-text">Continuez la conversation…</span>
+      <div class="preview-send">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="fonctionnalites">
+  <div class="section-inner">
+    <div class="features-header">
+      <span class="section-label">Fonctionnalités</span>
+      <h2 class="section-title">Tout ce dont vous avez besoin,<br>dans une seule conversation</h2>
+      <p class="section-sub">Vitosoli s'adapte à votre façon de travailler, pas l'inverse.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">✍️</div>
+        <div class="feature-title">Rédaction intelligente</div>
+        <div class="feature-desc">Emails, articles, posts LinkedIn, rapports. Vitosoli adapte le ton et le style selon votre besoin exact.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💻</div>
+        <div class="feature-title">Code à la demande</div>
+        <div class="feature-desc">Python, JavaScript, SQL, et plus. Générez, corrigez ou expliquez du code en langage naturel.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🧠</div>
+        <div class="feature-title">Analyse & synthèse</div>
+        <div class="feature-desc">Résumez des documents complexes, extrayez les points clés, obtenez des explications claires.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💡</div>
+        <div class="feature-title">Brainstorming</div>
+        <div class="feature-desc">Générez des idées, explorez des angles différents, débloquez votre créativité en quelques secondes.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌍</div>
+        <div class="feature-title">Multilingue</div>
+        <div class="feature-desc">Travaillez en français, anglais, espagnol et bien d'autres langues. Vitosoli comprend et répond dans votre langue.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Réponses instantanées</div>
+        <div class="feature-desc">Pas d'attente. Vitosoli répond en temps réel, quel que soit la complexité de votre question.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="comment" class="how-section">
+  <div class="section-inner">
+    <div class="features-header">
+      <span class="section-label">Comment ça marche</span>
+      <h2 class="section-title">Simple comme une conversation</h2>
+    </div>
+    <div class="how-grid">
+      <div class="how-step">
+        <span class="how-num">1</span>
+        <div class="how-title">Créez votre compte</div>
+        <div class="how-desc">Inscription en 30 secondes, sans carte bancaire. Votre premier accès est entièrement gratuit.</div>
+      </div>
+      <div class="how-step">
+        <span class="how-num">2</span>
+        <div class="how-title">Posez votre question</div>
+        <div class="how-desc">Écrivez ce que vous avez en tête, comme vous le feriez à un collègue expert. Pas de syntaxe spéciale.</div>
+      </div>
+      <div class="how-step">
+        <span class="how-num">3</span>
+        <div class="how-title">Obtenez une réponse</div>
+        <div class="how-desc">Vitosoli répond en secondes. Affinez, posez des questions de suivi, continuez la conversation.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section id="avis">
+  <div class="section-inner">
+    <div class="features-header">
+      <span class="section-label">Ils utilisent Vitosoli</span>
+      <h2 class="section-title">Des milliers de personnes<br>avancent plus vite</h2>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">« Je rédige mes emails clients en 2 minutes au lieu de 20. Vitosoli a complètement changé ma façon de travailler. »</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">S</div>
+          <div>
+            <div class="testimonial-name">Sophie M.</div>
+            <div class="testimonial-role">Consultante indépendante</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">« Pour le code, c'est bluffant. J'explique ce que je veux en français et j'obtiens le script propre, commenté, prêt à l'emploi. »</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">A</div>
+          <div>
+            <div class="testimonial-name">Antoine R.</div>
+            <div class="testimonial-role">Développeur freelance</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">« J'utilise Vitosoli pour préparer mes réunions et synthétiser mes notes. Un gain de temps considérable chaque semaine. »</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">M</div>
+          <div>
+            <div class="testimonial-name">Marie-Claire D.</div>
+            <div class="testimonial-role">Directrice de projet</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="cta-box">
+    <div class="cta-glow"></div>
+    <h2>Prêt à essayer Vitosoli ?</h2>
+    <p>Rejoignez des milliers d'utilisateurs qui travaillent plus intelligemment chaque jour. Accès gratuit, sans engagement.</p>
+    <div class="cta-actions">
+      <a href="chat-ia.html" class="btn-hero">Démarrer gratuitement →</a>
+      <a href="chat-ia.html" class="btn-hero-ghost">Voir une démo</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <a href="#" class="footer-logo">
+    <div class="footer-logo-icon">✦</div>
+    <span class="footer-logo-name">Vitosoli</span>
+  </a>
+  <span class="footer-copy">© 2025 Vitosoli. Tous droits réservés.</span>
+  <div class="footer-links">
+    <a href="#">Confidentialité</a>
+    <a href="#">Conditions</a>
+    <a href="#">Contact</a>
+  </div>
+</footer>
+
+</body>
+</html>
