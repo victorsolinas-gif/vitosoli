@@ -2,6 +2,7 @@
   "name": "vitosoli-chat",
   "version": "1.0.0",
   "description": "Interface chat IA Vitosoli — propulsée par Claude",
+  "license": "MIT",
   "type": "module",
   "main": "server.js",
   "scripts": {
