@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Vitosoli — Générateur Layout LED DXF</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07080f;--surface:#0d0f1c;--surface2:#131525;--surface3:#1a1d30;
+  --border:rgba(255,255,255,0.07);--text:#e8e6ff;--muted:#6b6d8a;
+  --grad:linear-gradient(135deg,#7c5cfc,#e040fb,#00d4ff);
+  --safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px);
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
+.app{display:flex;height:100vh;height:-webkit-fill-available}
+
+/* SIDEBAR */
+.sidebar{width:250px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:14px 12px;padding-top:calc(14px + var(--safe-top));gap:6px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--surface2) transparent}
+.sidebar::-webkit-scrollbar{width:3px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--surface2);border-radius:3px}
+.logo{display:flex;align-items:center;gap:8px;padding:4px 6px 14px}
+.logo-icon{width:28px;height:28px;border-radius:8px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.logo-name{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.section-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:8px 2px 5px}
+
+/* Shape grid */
+.shape-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px}
+.shape-btn{padding:8px 4px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:10px;font-weight:500;cursor:pointer;text-align:center;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.shape-btn:hover,.shape-btn.active{border-color:rgba(124,92,252,.4);background:rgba(124,92,252,.12);color:#a78bfa}
+.shape-icon{font-size:16px;display:block;margin-bottom:3px}
+
+/* Wiring grid */
+.wire-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px}
+.wire-btn{padding:7px 4px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:9px;font-weight:500;cursor:pointer;text-align:center;transition:all .15s;-webkit-tap-highlight-color:transparent;line-height:1.3}
+.wire-btn:hover,.wire-btn.active{border-color:rgba(255,107,43,.4);background:rgba(255,107,43,.1);color:#ff6b2b}
+.wire-icon{font-size:14px;display:block;margin-bottom:2px}
+
+/* Controls */
+.ctrl{margin-bottom:8px}
+.ctrl label{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;margin-bottom:3px}
+.ctrl label span{color:var(--text);font-family:'JetBrains Mono',monospace;font-weight:600}
+.ctrl input[type=range]{width:100%;-webkit-appearance:none;height:3px;background:var(--surface3);border-radius:2px;outline:none}
+.ctrl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--grad);cursor:pointer}
+.ctrl select,.ctrl input[type=number]{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:6px 9px;color:var(--text);font-size:11px;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s}
+.ctrl select:focus{border-color:rgba(124,92,252,.4)}
+
+/* Colors */
+.color-row{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px}
+.color-dot{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:border-color .15s;flex-shrink:0}
+.color-dot.active{border-color:#fff}
+.color-custom{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);overflow:hidden;cursor:pointer}
+.color-custom input{width:30px;height:30px;border:none;padding:0;margin:-4px;cursor:pointer}
+
+/* Buttons */
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:9px;border-radius:9px;border:none;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;transition:opacity .2s,transform .15s;-webkit-tap-highlight-color:transparent;margin-top:5px}
+.btn-primary{background:var(--grad);color:#fff}
+.btn-primary:hover{opacity:.88;transform:translateY(-1px)}
+.btn-secondary{background:var(--surface2);border:1px solid var(--border);color:var(--text)}
+.btn-secondary:hover{border-color:rgba(124,92,252,.3)}
+
+/* MAIN */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;padding-top:calc(10px + var(--safe-top));border-bottom:1px solid var(--border);background:rgba(7,8,15,.9);backdrop-filter:blur(12px);flex-shrink:0;gap:10px}
+.topbar-title{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;display:flex;align-items:center;gap:8px}
+.status-dot{width:7px;height:7px;border-radius:50%;background:#00ff88;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.topbar-actions{display:flex;gap:8px}
+.tb-btn{display:flex;align-items:center;gap:5px;padding:7px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:11px;font-weight:500;font-family:'Inter',sans-serif;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent}
+.tb-btn:hover{border-color:rgba(124,92,252,.4);background:var(--surface2)}
+.tb-btn.primary{background:var(--grad);border:none;color:#fff}
+
+.canvas-area{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg);position:relative}
+.canvas-wrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+canvas{cursor:crosshair}
+
+.bottom-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 20px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+.info-tag{display:flex;align-items:center;gap:5px;font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted)}
+.info-tag span{color:var(--text);font-weight:600}
+
+/* Mobile */
+.menu-btn{display:none;width:34px;height:34px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--muted);align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.sidebar-overlay{display:none;position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);backdrop-filter:blur(4px)}
+.sidebar-overlay.open{display:block}
+@media(max-width:768px){
+  .sidebar{position:fixed;top:0;left:0;bottom:0;z-index:50;transform:translateX(-100%);transition:transform .3s}
+  .sidebar.open{transform:translateX(0)}
+  .menu-btn{display:flex}
+  .topbar,.bottom-bar{padding-left:14px;padding-right:14px}
+}
+</style>
+</head>
+<body>
+<div class="sidebar-overlay" id="overlay" onclick="closeSidebar()"></div>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="logo">
+    <div class="logo-icon">📐</div>
+    <span class="logo-name">LED Layout DXF</span>
+  </div>
+
+  <div class="section-label">Disposition</div>
+  <div class="shape-grid">
+    <div class="shape-btn active" onclick="setShape('linear')" id="s-linear"><span class="shape-icon">➖</span>Linéaire</div>
+    <div class="shape-btn" onclick="setShape('matrix')" id="s-matrix"><span class="shape-icon">⬛</span>Matrice</div>
+    <div class="shape-btn" onclick="setShape('circle')" id="s-circle"><span class="shape-icon">⭕</span>Cercle</div>
+    <div class="shape-btn" onclick="setShape('spiral')" id="s-spiral"><span class="shape-icon">🌀</span>Spirale</div>
+    <div class="shape-btn" onclick="setShape('zigzag')" id="s-zigzag"><span class="shape-icon">〰️</span>Zigzag</div>
+    <div class="shape-btn" onclick="setShape('star')" id="s-star"><span class="shape-icon">⭐</span>Étoile</div>
+  </div>
+
+  <div class="section-label">Type de câblage</div>
+  <div class="wire-grid">
+    <div class="wire-btn active" onclick="setWiring('serpentine-h')" id="w-serpentine-h"><span class="wire-icon">↔️</span>Serpentine<br>Horizontal</div>
+    <div class="wire-btn" onclick="setWiring('serpentine-v')" id="w-serpentine-v"><span class="wire-icon">↕️</span>Serpentine<br>Vertical</div>
+    <div class="wire-btn" onclick="setWiring('rowbyrow')" id="w-rowbyrow"><span class="wire-icon">→→</span>Ligne<br>par ligne</div>
+    <div class="wire-btn" onclick="setWiring('colbycol')" id="w-colbycol"><span class="wire-icon">↓↓</span>Colonne<br>par colonne</div>
+    <div class="wire-btn" onclick="setWiring('diagonal')" id="w-diagonal"><span class="wire-icon">↗️</span>Diagonal</div>
+    <div class="wire-btn" onclick="setWiring('center-out')" id="w-center-out"><span class="wire-icon">🎯</span>Centre<br>vers ext.</div>
+  </div>
+
+  <div class="section-label">Point de départ</div>
+  <div class="ctrl">
+    <select id="startPoint" onchange="redraw()">
+      <option value="topleft">↖ Haut gauche</option>
+      <option value="topright">↗ Haut droite</option>
+      <option value="bottomleft">↙ Bas gauche</option>
+      <option value="bottomright">↘ Bas droite</option>
+      <option value="center">⊙ Centre</option>
+    </select>
+  </div>
+
+  <div class="section-label">Configuration LEDs</div>
+  <div class="ctrl">
+    <label>Nombre de LEDs <span id="ledCountVal">30</span></label>
+    <input type="range" min="1" max="300" value="30" id="ledCount" oninput="updateVal('ledCount','ledCountVal');redraw()">
+  </div>
+  <div class="ctrl" id="colsCtrl" style="display:none">
+    <label>Colonnes <span id="colsVal">10</span></label>
+    <input type="range" min="2" max="30" value="10" id="cols" oninput="updateVal('cols','colsVal');redraw()">
+  </div>
+  <div class="ctrl">
+    <label>Espacement mm <span id="spacingVal">10</span></label>
+    <input type="range" min="5" max="100" value="10" id="spacing" oninput="updateVal('spacing','spacingVal');redraw()">
+  </div>
+  <div class="ctrl">
+    <label>Taille LED mm <span id="ledSizeVal">5</span></label>
+    <input type="range" min="2" max="20" value="5" id="ledSize" oninput="updateVal('ledSize','ledSizeVal');redraw()">
+  </div>
+
+  <div class="section-label">Contrôleur & Puce</div>
+  <div class="ctrl">
+    <select id="chipSelect" onchange="updateInfo()">
+      <option value="WS2812B">WS2812B</option>
+      <option value="WS2811">WS2811</option>
+      <option value="WS2815">WS2815 (12V)</option>
+      <option value="SK6812">SK6812 RGBW</option>
+      <option value="APA102">APA102</option>
+      <option value="UCS1903">UCS1903</option>
+    </select>
+  </div>
+  <div class="ctrl">
+    <select id="ctrlSelect" onchange="updateInfo()">
+      <option value="T1000S">T1000S</option>
+      <option value="K1000C">K1000C</option>
+      <option value="T8000">T8000</option>
+      <option value="S2000">S2000</option>
+      <option value="T300K">T300K</option>
+    </select>
+  </div>
+  <div class="ctrl">
+    <select id="voltage" onchange="updateInfo()">
+      <option value="5V">5V</option>
+      <option value="12V">12V</option>
+      <option value="24V">24V</option>
+    </select>
+  </div>
+
+  <div class="section-label">Injection courant ⚡</div>
+  <div class="ctrl">
+    <select id="powerInject" onchange="redraw()">
+      <option value="start">Début uniquement</option>
+      <option value="both">Début + Fin</option>
+      <option value="middle">Début + Milieu + Fin</option>
+      <option value="every50">Tous les 50 LEDs</option>
+    </select>
+  </div>
+
+  <div class="section-label">Couleur</div>
+  <div class="color-row">
+    <div class="color-dot active" style="background:#ff6600" onclick="setColor('#ff6600',this)"></div>
+    <div class="color-dot" style="background:#00d4ff" onclick="setColor('#00d4ff',this)"></div>
+    <div class="color-dot" style="background:#00ff88" onclick="setColor('#00ff88',this)"></div>
+    <div class="color-dot" style="background:#e040fb" onclick="setColor('#e040fb',this)"></div>
+    <div class="color-dot" style="background:#ffffff" onclick="setColor('#ffffff',this)"></div>
+    <div class="color-dot" style="background:#ffdd00" onclick="setColor('#ffdd00',this)"></div>
+    <div class="color-custom"><input type="color" value="#ff6600" oninput="setColor(this.value,null)"></div>
+  </div>
+
+  <div style="margin-top:auto;padding-top:10px;border-top:1px solid var(--border)">
+    <button class="btn btn-primary" onclick="exportDXF()">⬇ Télécharger .dxf</button>
+    <button class="btn btn-secondary" onclick="exportSVG()">⬇ Télécharger .svg</button>
+    <button class="btn btn-secondary" onclick="window.location='arduino-led.html'">← Studio Arduino</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="menu-btn" onclick="openSidebar()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </div>
+      <div class="topbar-title"><div class="status-dot"></div>Générateur Layout LED — DXF</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="tb-btn" onclick="resetView()">🔄 Reset</button>
+      <button class="tb-btn primary" onclick="exportDXF()">⬇ Export DXF</button>
+    </div>
+  </div>
+
+  <div class="canvas-area">
+    <div class="canvas-wrap" id="canvasWrap">
+      <canvas id="ledCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="info-tag">LEDs : <span id="infoLeds">30</span></div>
+    <div class="info-tag">Câblage : <span id="infoWire">Serpentine H</span></div>
+    <div class="info-tag">Départ : <span id="infoStart">↖ Haut gauche</span></div>
+    <div class="info-tag">Puce : <span id="infoChip">WS2812B</span></div>
+    <div class="info-tag">Ctrl : <span id="infoCtrl">T1000S</span></div>
+    <div class="info-tag" style="margin-left:auto"><span id="infoDims">300 × 10 mm</span></div>
+  </div>
+</main>
+</div>
+
+<script>
+let shape = 'linear';
+let wiring = 'serpentine-h';
+let ledColor = '#ff6600';
+let positions = [];
+let scale = 4;
+
+function openSidebar(){document.getElementById('sidebar').classList.add('open');document.getElementById('overlay').classList.add('open')}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('overlay').classList.remove('open')}
+
+window.addEventListener('load',()=>{resizeCanvas();redraw();window.addEventListener('resize',()=>{resizeCanvas();redraw()})});
+
+function resizeCanvas(){
+  const w=document.getElementById('canvasWrap');
+  const c=document.getElementById('ledCanvas');
+  c.width=w.clientWidth;c.height=w.clientHeight;
+}
+
+function updateVal(id,spanId){document.getElementById(spanId).textContent=document.getElementById(id).value;updateInfo()}
+
+function updateInfo(){
+  const n=parseInt(document.getElementById('ledCount').value);
+  const sp=parseInt(document.getElementById('spacing').value);
+  const chip=document.getElementById('chipSelect').value;
+  const ctrl=document.getElementById('ctrlSelect').value;
+  const wireLabels={'serpentine-h':'Serpentine H','serpentine-v':'Serpentine V','rowbyrow':'Ligne/ligne','colbycol':'Col/col','diagonal':'Diagonal','center-out':'Centre→Ext'};
+  const startLabels={'topleft':'↖ Haut G','topright':'↗ Haut D','bottomleft':'↙ Bas G','bottomright':'↘ Bas D','center':'⊙ Centre'};
+  document.getElementById('infoLeds').textContent=n;
+  document.getElementById('infoWire').textContent=wireLabels[wiring]||wiring;
+  document.getElementById('infoStart').textContent=startLabels[document.getElementById('startPoint').value]||'';
+  document.getElementById('infoChip').textContent=chip;
+  document.getElementById('infoCtrl').textContent=ctrl;
+}
+
+function setShape(s){
+  shape=s;
+  document.querySelectorAll('.shape-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`s-${s}`).classList.add('active');
+  document.getElementById('colsCtrl').style.display=(s==='matrix')?'block':'none';
+  redraw();
+}
+
+function setWiring(w){
+  wiring=w;
+  document.querySelectorAll('.wire-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`w-${w}`).classList.add('active');
+  redraw();
+}
+
+function setColor(c,el){
+  ledColor=c;
+  document.querySelectorAll('.color-dot').forEach(d=>d.classList.remove('active'));
+  if(el)el.classList.add('active');
+  redraw();
+}
+
+function resetView(){scale=4;redraw()}
+
+// ── COMPUTE POSITIONS ──
+function computePositions(){
+  const n=parseInt(document.getElementById('ledCount').value);
+  const sp=parseInt(document.getElementById('spacing').value);
+  const cols=parseInt(document.getElementById('cols').value)||10;
+  const startPt=document.getElementById('startPoint').value;
+  let pos=[];
+
+  if(shape==='linear'){
+    for(let i=0;i<n;i++) pos.push({x:i*sp,y:0,idx:i});
+  }
+  else if(shape==='matrix'){
+    const rows=Math.ceil(n/cols);
+    for(let i=0;i<n;i++){
+      const r=Math.floor(i/cols),c=i%cols;
+      let x,y;
+      // Apply wiring type
+      if(wiring==='serpentine-h'){
+        x=(r%2===0?c:cols-1-c)*sp; y=r*sp;
+      } else if(wiring==='serpentine-v'){
+        x=c*sp; y=(c%2===0?r:rows-1-r)*sp;
+      } else if(wiring==='rowbyrow'){
+        x=c*sp; y=r*sp;
+      } else if(wiring==='colbycol'){
+        x=r*sp; y=c*sp;
+      } else if(wiring==='diagonal'){
+        const d=r+c;
+        x=c*sp; y=r*sp;
+      } else if(wiring==='center-out'){
+        const cr=Math.floor(rows/2),cc=Math.floor(cols/2);
+        x=(c-cc)*sp+(cols/2)*sp; y=(r-cr)*sp+(rows/2)*sp;
+      } else {
+        x=c*sp; y=r*sp;
+      }
+      pos.push({x,y,idx:i});
+    }
+  }
+  else if(shape==='circle'){
+    const radius=(n*sp)/(2*Math.PI);
+    for(let i=0;i<n;i++){
+      const a=(i/n)*2*Math.PI-Math.PI/2;
+      pos.push({x:radius+radius*Math.cos(a),y:radius+radius*Math.sin(a),idx:i});
+    }
+  }
+  else if(shape==='spiral'){
+    for(let i=0;i<n;i++){
+      const a=i*0.5,radius=sp*0.3*a;
+      pos.push({x:radius*Math.cos(a)+n*sp*0.15,y:radius*Math.sin(a)+n*sp*0.15,idx:i});
+    }
+  }
+  else if(shape==='zigzag'){
+    const rl=10;
+    for(let i=0;i<n;i++){
+      const row=Math.floor(i/rl),col=i%rl;
+      pos.push({x:(row%2===0?col:rl-1-col)*sp,y:row*sp*1.5,idx:i});
+    }
+  }
+  else if(shape==='star'){
+    const pts=5,or=(n*sp*0.08),ir=or*0.4,perSeg=Math.floor(n/(pts*2));
+    let idx=0;
+    for(let p=0;p<pts*2&&idx<n;p++){
+      const a0=(p/(pts*2))*2*Math.PI-Math.PI/2,a1=((p+1)/(pts*2))*2*Math.PI-Math.PI/2;
+      const r0=p%2===0?or:ir,r1=(p+1)%2===0?or:ir;
+      for(let s=0;s<perSeg&&idx<n;s++,idx++){
+        const t=s/perSeg;
+        pos.push({x:or+(r0+(r1-r0)*t)*Math.cos(a0+(a1-a0)*t),y:or+(r0+(r1-r0)*t)*Math.sin(a0+(a1-a0)*t),idx});
+      }
+    }
+  }
+
+  // Apply start point transformation
+  if(pos.length>0){
+    const xs=pos.map(p=>p.x),ys=pos.map(p=>p.y);
+    const maxX=Math.max(...xs),maxY=Math.max(...ys);
+    if(startPt==='topright') pos=pos.map(p=>({...p,x:maxX-p.x}));
+    else if(startPt==='bottomleft') pos=pos.map(p=>({...p,y:maxY-p.y}));
+    else if(startPt==='bottomright') pos=pos.map(p=>({...p,x:maxX-p.x,y:maxY-p.y}));
+    else if(startPt==='center'){
+      const cx=maxX/2,cy=maxY/2;
+      pos.sort((a,b)=>Math.hypot(a.x-cx,a.y-cy)-Math.hypot(b.x-cx,b.y-cy));
+    }
+  }
+
+  // Update dims
+  if(pos.length>0){
+    const xs=pos.map(p=>p.x),ys=pos.map(p=>p.y);
+    const w=Math.round(Math.max(...xs)-Math.min(...xs)+sp);
+    const h=Math.round(Math.max(...ys)-Math.min(...ys)+sp);
+    document.getElementById('infoDims').textContent=`${w} × ${h} mm`;
+  }
+
+  positions=pos;
+  return pos;
+}
+
+// ── DRAW ──
+function redraw(){
+  updateInfo();
+  const canvas=document.getElementById('ledCanvas');
+  const ctx=canvas.getContext('2d');
+  const pos=computePositions();
+  const ledSize=parseInt(document.getElementById('ledSize').value);
+  const sp=parseInt(document.getElementById('spacing').value);
+  const powerInject=document.getElementById('powerInject').value;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // Grid dots
+  ctx.fillStyle='rgba(255,255,255,0.04)';
+  for(let x=20;x<canvas.width;x+=20) for(let y=20;y<canvas.height;y+=20){
+    ctx.beginPath();ctx.arc(x,y,1,0,Math.PI*2);ctx.fill();
+  }
+
+  if(pos.length===0) return;
+
+  const xs=pos.map(p=>p.x),ys=pos.map(p=>p.y);
+  const minX=Math.min(...xs),maxX=Math.max(...xs);
+  const minY=Math.min(...ys),maxY=Math.max(...ys);
+  const layoutW=(maxX-minX)*scale,layoutH=(maxY-minY)*scale;
+  const cx=(canvas.width-layoutW)/2-minX*scale;
+  const cy=(canvas.height-layoutH)/2-minY*scale;
+  const r=Math.max(4,(ledSize/2)*scale*0.6);
+
+  // Draw wires with arrows
+  drawWires(ctx,pos,cx,cy,r,sp);
+
+  // Power injection points
+  const injPoints=[0];
+  if(powerInject==='both'||powerInject==='middle') injPoints.push(pos.length-1);
+  if(powerInject==='middle') injPoints.push(Math.floor(pos.length/2));
+  if(powerInject==='every50'){for(let i=50;i<pos.length;i+=50)injPoints.push(i)}
+
+  // Draw LEDs
+  pos.forEach((p,i)=>{
+    const x=cx+p.x*scale,y=cy+p.y*scale;
+    // Glow
+    const grd=ctx.createRadialGradient(x,y,0,x,y,r*2.5);
+    grd.addColorStop(0,ledColor+'66');grd.addColorStop(1,'transparent');
+    ctx.fillStyle=grd;ctx.beginPath();ctx.arc(x,y,r*2.5,0,Math.PI*2);ctx.fill();
+    // Body
+    ctx.fillStyle=ledColor;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,0.25)';ctx.lineWidth=0.8;ctx.stroke();
+    // Index every 5
+    if(i%5===0||i===pos.length-1){
+      ctx.fillStyle='rgba(255,255,255,0.6)';
+      ctx.font=`${Math.max(7,r*0.7)}px JetBrains Mono`;
+      ctx.textAlign='center';ctx.textBaseline='bottom';
+      ctx.fillText(i,x,y-r-2);ctx.textBaseline='alphabetic';
+    }
+    // Power injection
+    if(injPoints.includes(i)){
+      ctx.font=`${Math.max(10,r)}px serif`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('⚡',x+r+3,y-r-3);ctx.textBaseline='alphabetic';
+    }
+  });
+
+  // Start marker (green S)
+  drawMarker(ctx,cx+pos[0].x*scale,cy+pos[0].y*scale,r,'#00ff88','S');
+  // End marker (red E)
+  drawMarker(ctx,cx+pos[pos.length-1].x*scale,cy+pos[pos.length-1].y*scale,r,'#ff4444','E');
+
+  // Legend
+  drawLegend(ctx,canvas);
+}
+
+function drawWires(ctx,pos,cx,cy,r,sp){
+  if(pos.length<2) return;
+  const cols=parseInt(document.getElementById('cols').value)||10;
+
+  // Main wire
+  ctx.strokeStyle='rgba(200,200,200,0.2)';
+  ctx.lineWidth=1.5;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  pos.forEach((p,i)=>{
+    const x=cx+p.x*scale,y=cy+p.y*scale;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Direction arrows every few LEDs
+  const step=Math.max(1,Math.floor(pos.length/15));
+  for(let i=step;i<pos.length;i+=step){
+    const p0=pos[i-1],p1=pos[i];
+    const x0=cx+p0.x*scale,y0=cy+p0.y*scale;
+    const x1=cx+p1.x*scale,y1=cy+p1.y*scale;
+    drawArrow(ctx,x0,y0,x1,y1,'rgba(255,255,255,0.35)');
+  }
+
+  // Serpentine turn connectors
+  if(shape==='matrix'&&(wiring==='serpentine-h'||wiring==='serpentine-v')){
+    ctx.strokeStyle='rgba(124,92,252,0.5)';
+    ctx.lineWidth=2;
+    ctx.setLineDash([4,4]);
+    const rows=Math.ceil(pos.length/cols);
+    for(let row=0;row<rows-1;row++){
+      const lastInRow=Math.min((row+1)*cols-1,pos.length-1);
+      const firstInNext=Math.min((row+1)*cols,pos.length-1);
+      if(lastInRow!==firstInNext){
+        const p0=pos[lastInRow],p1=pos[firstInNext];
+        ctx.beginPath();
+        ctx.moveTo(cx+p0.x*scale,cy+p0.y*scale);
+        ctx.lineTo(cx+p1.x*scale,cy+p1.y*scale);
+        ctx.stroke();
+      }
+    }
+    ctx.setLineDash([]);
+  }
+}
+
+function drawArrow(ctx,x1,y1,x2,y2,color){
+  const angle=Math.atan2(y2-y1,x2-x1);
+  const mx=(x1+x2)/2,my=(y1+y2)/2;
+  const size=6;
+  ctx.fillStyle=color;
+  ctx.beginPath();
+  ctx.moveTo(mx+size*Math.cos(angle),my+size*Math.sin(angle));
+  ctx.lineTo(mx+size*Math.cos(angle+2.4),my+size*Math.sin(angle+2.4));
+  ctx.lineTo(mx+size*Math.cos(angle-2.4),my+size*Math.sin(angle-2.4));
+  ctx.closePath();ctx.fill();
+}
+
+function drawMarker(ctx,x,y,r,color,letter){
+  ctx.fillStyle=color;
+  ctx.beginPath();ctx.arc(x,y,r+3,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#000';
+  ctx.font=`bold ${Math.max(8,r*0.9)}px Inter`;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(letter,x,y);
+  ctx.textBaseline='alphabetic';
+}
+
+function drawLegend(ctx,canvas){
+  const items=[
+    {color:'#00ff88',label:'Début (S)'},
+    {color:'#ff4444',label:'Fin (E)'},
+    {color:'rgba(124,92,252,0.7)',label:'Retour serpentine'},
+    {color:'rgba(255,255,255,0.3)',label:'Direction →'},
+  ];
+  const x=12,startY=canvas.height-12-items.length*16;
+  items.forEach((item,i)=>{
+    ctx.fillStyle=item.color;
+    ctx.beginPath();ctx.arc(x+5,startY+i*16,4,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.5)';
+    ctx.font='9px Inter';ctx.textAlign='left';
+    ctx.fillText(item.label,x+13,startY+i*16+3);
+  });
+
+  // Wiring type label
+  const wireLabels={'serpentine-h':'↔ Serpentine Horizontal','serpentine-v':'↕ Serpentine Vertical','rowbyrow':'→→ Ligne par ligne','colbycol':'↓↓ Colonne par colonne','diagonal':'↗ Diagonal','center-out':'⊙ Centre vers ext.'};
+  ctx.fillStyle='rgba(255,107,43,0.7)';
+  ctx.font='bold 10px Inter';ctx.textAlign='right';
+  ctx.fillText(wireLabels[wiring]||wiring,canvas.width-12,canvas.height-10);
+}
+
+// ── DXF EXPORT ──
+function exportDXF(){
+  const pos=computePositions();
+  const n=pos.length;
+  const ledSize=parseInt(document.getElementById('ledSize').value);
+  const chip=document.getElementById('chipSelect').value;
+  const ctrl=document.getElementById('ctrlSelect').value;
+  const volt=document.getElementById('voltage').value;
+  const r=ledSize/2;
+
+  let dxf=`999\nVitosoli LED Layout Generator\n`;
+  dxf+=`999\nChip:${chip} Ctrl:${ctrl} Voltage:${volt} LEDs:${n} Wiring:${wiring}\n`;
+  dxf+=`0\nSECTION\n2\nHEADER\n9\n$ACADVER\n1\nAC1015\n9\n$INSUNITS\n70\n4\n0\nENDSEC\n`;
+  dxf+=`0\nSECTION\n2\nENTITIES\n`;
+  // Wire
+  dxf+=`0\nPOLYLINE\n8\nWIRES\n66\n1\n`;
+  pos.forEach(p=>{dxf+=`0\nVERTEX\n8\nWIRES\n10\n${p.x.toFixed(3)}\n20\n${p.y.toFixed(3)}\n30\n0.0\n`});
+  dxf+=`0\nSEQEND\n`;
+  // LEDs
+  pos.forEach((p,i)=>{
+    dxf+=`0\nCIRCLE\n8\nLEDS\n10\n${p.x.toFixed(3)}\n20\n${p.y.toFixed(3)}\n30\n0.0\n40\n${r.toFixed(3)}\n`;
+    dxf+=`0\nTEXT\n8\nLABELS\n10\n${p.x.toFixed(3)}\n20\n${(p.y+r+1).toFixed(3)}\n30\n0.0\n40\n${(r*0.8).toFixed(3)}\n1\n${i}\n`;
+  });
+  dxf+=`0\nENDSEC\n0\nEOF\n`;
+  download(dxf,`vitosoli_${shape}_${wiring}_${n}leds.dxf`,'application/dxf');
+}
+
+function exportSVG(){
+  const pos=computePositions();
+  const ledSize=parseInt(document.getElementById('ledSize').value);
+  const sp=parseInt(document.getElementById('spacing').value);
+  const r=ledSize/2,n=pos.length;
+  if(!n)return;
+  const xs=pos.map(p=>p.x),ys=pos.map(p=>p.y);
+  const minX=Math.min(...xs)-sp,minY=Math.min(...ys)-sp;
+  const W=Math.max(...xs)-minX+sp,H=Math.max(...ys)-minY+sp;
+  let svg=`<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${W} ${H}" width="${W}mm" height="${H}mm">\n<rect x="${minX}" y="${minY}" width="${W}" height="${H}" fill="#0a0a12"/>\n`;
+  svg+=`<polyline points="${pos.map(p=>`${p.x},${p.y}`).join(' ')}" fill="none" stroke="#888" stroke-width="0.5"/>\n`;
+  pos.forEach((p,i)=>{
+    const c=i===0?'#00ff88':i===n-1?'#ff4444':ledColor;
+    svg+=`<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="${c}" stroke="#fff" stroke-width="0.3"/>\n`;
+    if(i%5===0||i===n-1) svg+=`<text x="${p.x}" y="${p.y-r-1}" font-size="${r*0.8}" fill="#fff" text-anchor="middle" font-family="monospace">${i}</text>\n`;
+  });
+  svg+=`</svg>`;
+  download(svg,`vitosoli_${shape}_${wiring}_${n}leds.svg`,'image/svg+xml');
+}
+
+function download(content,filename,mime){
+  const blob=new Blob([content],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=filename;a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
