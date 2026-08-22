@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Vitosoli — Admin</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07080f;--surface:#0d0f1c;--surface2:#171728;
+  --border:rgba(255,255,255,0.07);--text:#eeeaff;--muted:#6b6d8a;
+  --grad:linear-gradient(135deg,#7c5cfc,#e040fb,#00d4ff);
+  --green:#00ff88;--red:#ff4444;--orange:#ff6b2b;
+  --safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px);
+}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased}
+
+/* LOGIN GATE */
+.gate{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  padding:24px;padding-top:calc(24px + var(--safe-top));
+}
+.gate-card{
+  width:100%;max-width:360px;background:var(--surface);
+  border:1px solid var(--border);border-radius:20px;padding:32px;
+}
+.gate h1{font-size:18px;text-align:center;margin-bottom:20px;
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.gate input{
+  width:100%;background:var(--surface2);border:1.5px solid var(--border);
+  border-radius:10px;padding:12px 14px;color:var(--text);
+  font-size:14px;outline:none;margin-bottom:12px;
+  transition:border-color .2s;
+}
+.gate input:focus{border-color:rgba(124,92,252,.5)}
+.gate button{
+  width:100%;padding:12px;border-radius:10px;border:none;
+  background:var(--grad);color:#fff;font-weight:600;cursor:pointer;
+}
+.gate-error{color:var(--red);font-size:12px;text-align:center;margin-top:10px;display:none}
+
+/* DASHBOARD */
+.dashboard{display:none;min-height:100vh;padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(20px + var(--safe-bottom))}
+.dashboard.visible{display:block}
+
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.header-title{display:flex;align-items:center;gap:10px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:16px}
+.logo-icon{width:32px;height:32px;border-radius:9px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff}
+.refresh-btn{
+  padding:8px 16px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text);font-size:12px;cursor:pointer;
+  font-family:'Inter',sans-serif;transition:all .2s;
+}
+.refresh-btn:hover{border-color:rgba(124,92,252,.4)}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:16px;
+}
+.stat-value{font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:700;
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:4px}
+
+/* TABS */
+.tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--border);overflow-x:auto}
+.tab{
+  padding:10px 18px;font-size:13px;font-weight:600;color:var(--muted);
+  cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;
+  transition:color .2s,border-color .2s;
+}
+.tab.active{color:#a78bfa;border-color:#7c5cfc}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;border-radius:14px;border:1px solid var(--border);background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:12px;min-width:600px}
+th{
+  text-align:left;padding:12px 14px;font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+  border-bottom:1px solid var(--border);background:var(--surface2);
+  white-space:nowrap;
+}
+td{padding:11px 14px;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(124,92,252,.04)}
+
+.badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:3px 10px;border-radius:100px;font-size:10px;font-weight:600;
+  font-family:'Inter',sans-serif;
+}
+.badge.verified{background:rgba(0,255,136,.12);color:var(--green)}
+.badge.pending{background:rgba(255,107,43,.12);color:var(--orange)}
+
+.flag{font-size:14px;margin-right:4px}
+
+.empty{padding:40px;text-align:center;color:var(--muted);font-size:13px}
+
+@media(max-width:640px){
+  .header-title{font-size:14px}
+  th,td{padding:8px 10px;font-size:11px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN GATE -->
+<div class="gate" id="gate">
+  <div class="gate-card">
+    <h1>✦ Vitosoli Admin</h1>
+    <input type="password" id="passwordInput" placeholder="Mot de passe admin" onkeydown="if(event.key==='Enter')login()">
+    <button onclick="login()">Connexion</button>
+    <div class="gate-error" id="gateError">Mot de passe incorrect.</div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dashboard" id="dashboard">
+  <div class="header">
+    <div class="header-title">
+      <div class="logo-icon">✦</div>
+      Vitosoli — Tableau de bord
+    </div>
+    <button class="refresh-btn" onclick="loadData()">🔄 Actualiser</button>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('users')">👤 Utilisateurs inscrits</div>
+    <div class="tab" onclick="switchTab('guests')">👻 Invités</div>
+  </div>
+
+  <div class="table-wrap" id="tableWrap"></div>
+</div>
+
+<script>
+let adminPassword = '';
+let currentTab = 'users';
+let dataCache = { users: [], guests: [] };
+
+function login(){
+  const pwd = document.getElementById('passwordInput').value;
+  adminPassword = pwd;
+  testAuth();
+}
+
+async function testAuth(){
+  try {
+    const res = await fetch('https://vitosoli.onrender.com/api/admin/stats?password=' + encodeURIComponent(adminPassword));
+    if(res.ok){
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('dashboard').classList.add('visible');
+      sessionStorage.setItem('vitosoli_admin_pwd', adminPassword);
+      loadData();
+    } else {
+      document.getElementById('gateError').style.display = 'block';
+    }
+  } catch(err){
+    document.getElementById('gateError').textContent = 'Erreur de connexion au serveur.';
+    document.getElementById('gateError').style.display = 'block';
+  }
+}
+
+// Auto-login if password stored in session
+window.addEventListener('load', () => {
+  const stored = sessionStorage.getItem('vitosoli_admin_pwd');
+  if(stored){
+    adminPassword = stored;
+    testAuth();
+  }
+});
+
+async function loadData(){
+  try {
+    const [statsRes, usersRes] = await Promise.all([
+      fetch('https://vitosoli.onrender.com/api/admin/stats?password=' + encodeURIComponent(adminPassword)),
+      fetch('https://vitosoli.onrender.com/api/admin/users?password=' + encodeURIComponent(adminPassword))
+    ]);
+
+    const stats = await statsRes.json();
+    const data = await usersRes.json();
+    dataCache = data;
+
+    renderStats(stats, data);
+    renderTable();
+  } catch(err){
+    console.error(err);
+  }
+}
+
+function renderStats(stats, data){
+  const statsEl = document.getElementById('stats');
+  statsEl.innerHTML = `
+    <div class="stat-card"><div class="stat-value">${stats.totalUsers}</div><div class="stat-label">Inscrits total</div></div>
+    <div class="stat-card"><div class="stat-value">${stats.verifiedUsers}</div><div class="stat-label">Comptes vérifiés</div></div>
+    <div class="stat-card"><div class="stat-value">${stats.totalGuests}</div><div class="stat-label">Invités (IP uniques)</div></div>
+    <div class="stat-card"><div class="stat-value">${data.guests.reduce((s,g)=>s+(g.count||0),0)}</div><div class="stat-label">Messages invités</div></div>
+  `;
+}
+
+function switchTab(tab){
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  event.target.classList.add('active');
+  renderTable();
+}
+
+function flagEmoji(countryCode){
+  if(!countryCode || countryCode.length !== 2 || countryCode === '??' || countryCode === 'XX') return '🌍';
+  const codePoints = countryCode.toUpperCase().split('').map(c => 127397 + c.charCodeAt());
+  return String.fromCodePoint(...codePoints);
+}
+
+function formatDate(dateStr){
+  if(!dateStr) return '-';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'});
+}
+
+function renderTable(){
+  const wrap = document.getElementById('tableWrap');
+
+  if(currentTab === 'users'){
+    if(!dataCache.users.length){
+      wrap.innerHTML = '<div class="empty">Aucun utilisateur inscrit pour le moment.</div>';
+      return;
+    }
+    wrap.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>Statut</th><th>Email</th><th>Téléphone</th><th>Localisation</th><th>IP</th><th>Inscrit le</th><th>Dernière connexion</th>
+        </tr></thead>
+        <tbody>
+          ${dataCache.users.map(u => `
+            <tr>
+              <td>${u.verified ? '<span class="badge verified">✅ Vérifié</span>' : '<span class="badge pending">⏳ En attente</span>'}</td>
+              <td>${u.email||'-'}</td>
+              <td>${u.phone||'-'}</td>
+              <td><span class="flag">${flagEmoji(u.countryCode)}</span>${u.city||'-'}, ${u.country||'-'}</td>
+              <td>${u.ip||'-'}</td>
+              <td>${formatDate(u.createdAt)}</td>
+              <td>${formatDate(u.lastLogin)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } else {
+    if(!dataCache.guests.length){
+      wrap.innerHTML = '<div class="empty">Aucun visiteur invité pour le moment.</div>';
+      return;
+    }
+    wrap.innerHTML = `
+      <table>
+        <thead><tr>
+          <th>IP</th><th>Localisation</th><th>Messages utilisés</th><th>Première visite</th><th>Dernière visite</th>
+        </tr></thead>
+        <tbody>
+          ${dataCache.guests.map(g => `
+            <tr>
+              <td>${g.ip||'-'}</td>
+              <td><span class="flag">${flagEmoji(g.countryCode)}</span>${g.city||'-'}, ${g.country||'-'}</td>
+              <td>${g.count||0} / 3</td>
+              <td>${formatDate(g.firstSeen)}</td>
+              <td>${formatDate(g.lastSeen)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  }
+}
+</script>
+</body>
+</html>
