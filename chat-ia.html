@@ -301,8 +301,23 @@
     color: var(--muted); display: flex; align-items: center; justify-content: center;
     cursor: pointer; flex-shrink: 0;
     -webkit-tap-highlight-color: transparent;
+    transition: border-color .2s, color .2s;
   }
-  .attach-btn:active { color: var(--text); }
+  .attach-btn:active, .attach-btn.has-file { color: #a78bfa; border-color: rgba(124,92,252,.4); }
+
+  /* File preview bar */
+  .file-preview-bar {
+    display:none;align-items:center;gap:10px;
+    padding:8px 12px;margin-bottom:8px;
+    background:rgba(124,92,252,.08);border:1px solid rgba(124,92,252,.2);
+    border-radius:10px;font-size:12px;
+  }
+  .file-preview-bar.visible { display:flex; }
+  .file-preview-img { width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0 }
+  .file-preview-icon { width:36px;height:36px;border-radius:6px;background:rgba(124,92,252,.15);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0 }
+  .file-preview-name { flex:1;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis }
+  .file-preview-size { color:var(--muted);flex-shrink:0 }
+  .file-preview-remove { width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0 }
 
   .send-btn {
     width: 38px; height: 38px; border-radius: 9px;
@@ -478,8 +493,8 @@
       <div class="msg-wrap">
         <div class="welcome" id="welcome">
           <div class="welcome-icon">✦</div>
-          <h1>Bonjour, je suis Vitosoli</h1>
-          <p>Votre assistant IA nouvelle génération. Posez-moi n'importe quelle question.</p>
+          <h1 class="greeting">Bonjour, je suis Vitosoli</h1>
+          <p class="greeting-sub">Votre assistant IA nouvelle génération. Posez-moi n'importe quelle question.</p>
           <div class="suggestions">
             <div class="suggestion-card" onclick="fillPrompt('Aide-moi à rédiger un email professionnel')">
               <div class="icon">✍️</div>
@@ -501,15 +516,20 @@
               <div class="label">Brainstorming</div>
               <div class="sublabel">Idées créatives</div>
             </div>
-            <div class="suggestion-card" onclick="window.location='arduino-led.html'" style="border-color:rgba(255,107,43,.3);background:linear-gradient(135deg,rgba(255,107,43,.08),rgba(124,92,252,.05))">
+            <div class="suggestion-card" data-special="arduino" onclick="window.location='arduino-led.html'" style="border-color:rgba(255,107,43,.3);background:linear-gradient(135deg,rgba(255,107,43,.08),rgba(124,92,252,.05))">
               <div class="icon">⚡</div>
               <div class="label">Studio Arduino</div>
               <div class="sublabel">LEDs NeoPixel & FastLED</div>
             </div>
-            <div class="suggestion-card" onclick="window.location='led-layout.html'" style="border-color:rgba(0,212,255,.3);background:linear-gradient(135deg,rgba(0,212,255,.08),rgba(124,92,252,.05))">
+            <div class="suggestion-card" data-special="led" onclick="window.location='led-layout.html'" style="border-color:rgba(0,212,255,.3);background:linear-gradient(135deg,rgba(0,212,255,.08),rgba(124,92,252,.05))">
               <div class="icon">📐</div>
               <div class="label">Layout LED</div>
               <div class="sublabel">Générateur DXF & SVG</div>
+            </div>
+            <div class="suggestion-card" data-special="astro" onclick="window.location='astro.html'" style="border-color:rgba(255,209,102,.3);background:linear-gradient(135deg,rgba(255,209,102,.08),rgba(224,64,251,.05))">
+              <div class="icon">🔮</div>
+              <div class="label">Carte Astrale</div>
+              <div class="sublabel">Analyse complète & gratuite</div>
             </div>
           </div>
         </div>
@@ -524,6 +544,15 @@
     <!-- INPUT -->
     <div class="input-area">
       <div class="input-wrap">
+        <!-- File preview bar -->
+        <div class="file-preview-bar" id="filePreviewBar">
+          <div class="file-preview-icon" id="filePreviewIcon">📄</div>
+          <img class="file-preview-img" id="filePreviewImg" style="display:none">
+          <div class="file-preview-name" id="filePreviewName">fichier.pdf</div>
+          <div class="file-preview-size" id="filePreviewSize">0 KB</div>
+          <button class="file-preview-remove" onclick="removeFile()" title="Supprimer">✕</button>
+        </div>
+
         <div class="input-box">
           <textarea
             id="input"
@@ -533,7 +562,8 @@
             oninput="autoResize(this)"
           ></textarea>
           <div class="input-actions">
-            <button class="attach-btn" title="Joindre">
+            <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" style="display:none" onchange="handleFileSelect(event)">
+            <button class="attach-btn" id="attachBtn" title="Joindre une image ou PDF" onclick="document.getElementById('fileInput').click()">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
             </button>
             <button class="send-btn" id="sendBtn" onclick="sendMessage()">
@@ -541,14 +571,121 @@
             </button>
           </div>
         </div>
-        <div class="input-hint">Entrée pour envoyer · <span>Shift+Entrée</span> pour nouvelle ligne</div>
+        <div class="input-hint">Entrée pour envoyer · <span>Shift+Entrée</span> pour nouvelle ligne · 📎 pour joindre image/PDF</div>
       </div>
     </div>
   </main>
 </div>
 
 <script>
-const SYSTEM_PROMPT = `Tu es Vitosoli, un assistant IA intelligent, bienveillant et expert. Tu réponds en français par défaut, de façon claire, précise et engageante. Tes réponses sont structurées quand c'est utile, concises quand c'est possible.`;
+const SYSTEM_PROMPT = `Tu es Vitosoli, un assistant IA intelligent, bienveillant et expert. Tu réponds de façon claire, précise et engageante. Tes réponses sont structurées quand c'est utile, concises quand c'est possible.`;
+
+// ── Détection langue navigateur ──
+const UI_LANG = (navigator.language || navigator.userLanguage || 'fr').split('-')[0].toLowerCase();
+
+const T = {
+  fr: {
+    placeholder: 'Posez votre question…',
+    hint: 'Entrée pour envoyer · Shift+Entrée pour nouvelle ligne · 📎 pour joindre image/PDF',
+    greeting: 'Bonjour, je suis Vitosoli',
+    subtitle: 'Votre assistant IA nouvelle génération. Posez-moi n\'importe quelle question.',
+    suggestions: [
+      { icon: '✍️', label: 'Rédiger un texte', sub: 'Email, article...', prompt: 'Aide-moi à rédiger un texte professionnel.' },
+      { icon: '🧠', label: 'Expliquer', sub: 'Simple et clair', prompt: 'Explique-moi un concept de façon simple.' },
+      { icon: '💻', label: 'Générer du code', sub: 'Python, JS, SQL...', prompt: 'Génère du code pour moi.' },
+      { icon: '💡', label: 'Brainstorming', sub: 'Idées créatives', prompt: 'Aide-moi à trouver des idées créatives.' }
+    ],
+    analyzeFile: 'Analyse ce fichier et explique son contenu.',
+    errorServer: 'Une erreur est survenue. Vérifiez que le serveur est bien démarré.',
+    limitTitle: 'Limite atteinte',
+    limitBtn: 'Créer un compte gratuit',
+    limitLater: 'Plus tard'
+  },
+  en: {
+    placeholder: 'Ask your question…',
+    hint: 'Enter to send · Shift+Enter for new line · 📎 to attach image/PDF',
+    greeting: 'Hello, I\'m Vitosoli',
+    subtitle: 'Your next-generation AI assistant. Ask me anything.',
+    suggestions: [
+      { icon: '✍️', label: 'Write a text', sub: 'Email, article...', prompt: 'Help me write a professional text.' },
+      { icon: '🧠', label: 'Explain', sub: 'Simple and clear', prompt: 'Explain a concept to me simply.' },
+      { icon: '💻', label: 'Generate code', sub: 'Python, JS, SQL...', prompt: 'Generate some code for me.' },
+      { icon: '💡', label: 'Brainstorm', sub: 'Creative ideas', prompt: 'Help me brainstorm creative ideas.' }
+    ],
+    analyzeFile: 'Analyze this file and explain its content.',
+    errorServer: 'An error occurred. Please check that the server is running.',
+    limitTitle: 'Limit reached',
+    limitBtn: 'Create a free account',
+    limitLater: 'Later'
+  },
+  it: {
+    placeholder: 'Fai la tua domanda…',
+    hint: 'Invio per inviare · Shift+Invio per nuova riga · 📎 per allegare immagine/PDF',
+    greeting: 'Ciao, sono Vitosoli',
+    subtitle: 'Il tuo assistente IA di nuova generazione. Chiedimi qualsiasi cosa.',
+    suggestions: [
+      { icon: '✍️', label: 'Scrivere un testo', sub: 'Email, articolo...', prompt: 'Aiutami a scrivere un testo professionale.' },
+      { icon: '🧠', label: 'Spiegare', sub: 'Semplice e chiaro', prompt: 'Spiegami un concetto in modo semplice.' },
+      { icon: '💻', label: 'Generare codice', sub: 'Python, JS, SQL...', prompt: 'Generami del codice.' },
+      { icon: '💡', label: 'Brainstorming', sub: 'Idee creative', prompt: 'Aiutami a trovare idee creative.' }
+    ],
+    analyzeFile: 'Analizza questo file e spiegane il contenuto.',
+    errorServer: 'Si è verificato un errore. Controlla che il server sia avviato.',
+    limitTitle: 'Limite raggiunto',
+    limitBtn: 'Crea un account gratuito',
+    limitLater: 'Più tardi'
+  },
+  es: {
+    placeholder: 'Haz tu pregunta…',
+    hint: 'Enter para enviar · Shift+Enter para nueva línea · 📎 para adjuntar imagen/PDF',
+    greeting: 'Hola, soy Vitosoli',
+    subtitle: 'Tu asistente IA de nueva generación. Pregúntame lo que quieras.',
+    suggestions: [
+      { icon: '✍️', label: 'Redactar un texto', sub: 'Email, artículo...', prompt: 'Ayúdame a redactar un texto profesional.' },
+      { icon: '🧠', label: 'Explicar', sub: 'Simple y claro', prompt: 'Explícame un concepto de forma sencilla.' },
+      { icon: '💻', label: 'Generar código', sub: 'Python, JS, SQL...', prompt: 'Genera código para mí.' },
+      { icon: '💡', label: 'Brainstorming', sub: 'Ideas creativas', prompt: 'Ayúdame a encontrar ideas creativas.' }
+    ],
+    analyzeFile: 'Analiza este archivo y explica su contenido.',
+    errorServer: 'Se produjo un error. Verifica que el servidor esté funcionando.',
+    limitTitle: 'Límite alcanzado',
+    limitBtn: 'Crear una cuenta gratuita',
+    limitLater: 'Más tarde'
+  }
+}
+
+// Fallback vers FR si langue non supportée
+const lang = T[UI_LANG] || T['fr']
+
+// ── Apply UI translations ──
+document.addEventListener('DOMContentLoaded', () => {
+  // Placeholder
+  const input = document.getElementById('input');
+  if(input) input.placeholder = lang.placeholder;
+
+  // Hint
+  const hint = document.querySelector('.input-hint');
+  if(hint) hint.innerHTML = lang.hint;
+
+  // Greeting & subtitle
+  const greetEl = document.querySelector('.greeting');
+  if(greetEl) greetEl.textContent = lang.greeting;
+  const subEl = document.querySelector('.greeting-sub');
+  if(subEl) subEl.textContent = lang.subtitle;
+
+  // Suggestion cards (rebuild)
+  const grid = document.querySelector('.suggestions-grid');
+  if(grid){
+    const specialBtns = Array.from(grid.querySelectorAll('[data-special]'));
+    grid.innerHTML = lang.suggestions.map(s => `
+      <div class="suggestion-card" onclick="fillInput('${s.prompt.replace(/'/g,"\\'")}')">
+        <div class="icon">${s.icon}</div>
+        <div class="label">${s.label}</div>
+        <div class="sublabel">${s.sub}</div>
+      </div>
+    `).join('') + specialBtns.map(b => b.outerHTML).join('');
+  }
+});
 
 let conversationHistory = [];
 let isLoading = false;
@@ -558,6 +695,64 @@ const chatMessagesEl = document.getElementById('chat-messages');
 const welcomeEl = document.getElementById('welcome');
 const inputEl = document.getElementById('input');
 const sendBtn = document.getElementById('sendBtn');
+
+// ── File attachment state ──
+let attachedFile = null; // { type:'image'|'pdf', base64, mimeType, name, size }
+
+function handleFileSelect(event){
+  const file = event.target.files[0];
+  if(!file) return;
+
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if(file.size > maxSize){
+    alert('Fichier trop volumineux (max 5 MB).');
+    event.target.value = '';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const base64 = e.target.result.split(',')[1];
+    const isImage = file.type.startsWith('image/');
+    attachedFile = { type: isImage ? 'image' : 'pdf', base64, mimeType: file.type, name: file.name, size: file.size };
+
+    // Show preview bar
+    const bar = document.getElementById('filePreviewBar');
+    const icon = document.getElementById('filePreviewIcon');
+    const img = document.getElementById('filePreviewImg');
+    document.getElementById('filePreviewName').textContent = file.name;
+    document.getElementById('filePreviewSize').textContent = formatFileSize(file.size);
+
+    if(isImage){
+      img.src = e.target.result;
+      img.style.display = 'block';
+      icon.style.display = 'none';
+    } else {
+      img.style.display = 'none';
+      icon.style.display = 'flex';
+      icon.textContent = '📄';
+    }
+
+    bar.classList.add('visible');
+    document.getElementById('attachBtn').classList.add('has-file');
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+function removeFile(){
+  attachedFile = null;
+  document.getElementById('filePreviewBar').classList.remove('visible');
+  document.getElementById('attachBtn').classList.remove('has-file');
+  document.getElementById('filePreviewImg').style.display = 'none';
+  document.getElementById('filePreviewImg').src = '';
+}
+
+function formatFileSize(bytes){
+  if(bytes < 1024) return bytes + ' o';
+  if(bytes < 1024*1024) return Math.round(bytes/1024) + ' KB';
+  return (bytes/1024/1024).toFixed(1) + ' MB';
+}
 
 // ── Sidebar (mobile) ──
 function openSidebar() {
@@ -696,20 +891,48 @@ function copyText(btn) {
 // ── Send ──
 async function sendMessage() {
   const text = inputEl.value.trim();
-  if (!text || isLoading) return;
+  if ((!text && !attachedFile) || isLoading) return;
   isLoading = true;
   sendBtn.disabled = true;
   inputEl.value = ''; inputEl.style.height = 'auto';
-  inputEl.blur(); // hide keyboard on mobile after send
+  inputEl.blur();
 
-  addMessage('user', text);
-  conversationHistory.push({ role: 'user', content: text });
+  // Build user message content for display
+  const displayText = text || (attachedFile ? '📎 ' + attachedFile.name : '');
+  addMessage('user', displayText);
+
+  // Build message for API (with optional file attachment)
+  let userContent;
+  if(attachedFile){
+    userContent = [];
+    if(attachedFile.type === 'image'){
+      userContent.push({ type: 'image', source: { type: 'base64', media_type: attachedFile.mimeType, data: attachedFile.base64 } });
+    } else {
+      // PDF as document
+      userContent.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: attachedFile.base64 } });
+    }
+    if(text) userContent.push({ type: 'text', text: text });
+    else userContent.push({ type: 'text', text: 'Analyse ce fichier et explique son contenu.' });
+  } else {
+    userContent = text;
+  }
+
+  conversationHistory.push({ role: 'user', content: userContent });
+
+  // Clear attached file
+  const hadFile = !!attachedFile;
+  removeFile();
+
   addTyping();
 
   try {
+    const headers = { 'Content-Type': 'application/json' };
+    const token = localStorage.getItem('vitosoli_token');
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
     const response = await fetch('https://vitosoli.onrender.com/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: headers,
       body: JSON.stringify({
         messages: conversationHistory,
         system: SYSTEM_PROMPT
@@ -717,6 +940,15 @@ async function sendMessage() {
     });
     const data = await response.json();
     removeTyping();
+
+    if (data.error === 'guest_limit') {
+      conversationHistory.pop();
+      showGuestLimitModal(data.message);
+      isLoading = false;
+      sendBtn.disabled = false;
+      return;
+    }
+
     if (data.error) throw new Error(data.error);
     const reply = data.reply || 'Désolé, une erreur est survenue.';
     addMessage('ai', reply);
@@ -736,7 +968,38 @@ if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
     setTimeout(scrollToBottom, 350);
   });
 }
+
+// ── AUTH: capture token from URL (after email verification) ──
+(function captureAuthToken(){
+  const params = new URLSearchParams(window.location.search);
+  const authToken = params.get('auth');
+  if(authToken){
+    localStorage.setItem('vitosoli_token', authToken);
+    window.history.replaceState({}, document.title, window.location.pathname);
+    setTimeout(() => {
+      addMessage('ai', '✅ Votre compte a été confirmé avec succès ! Vous avez maintenant un accès illimité à Vitosoli.');
+    }, 300);
+  }
+})();
+
+// ── GUEST LIMIT MODAL ──
+function showGuestLimitModal(message){
+  const overlay = document.createElement('div');
+  overlay.id = 'guestLimitOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px';
+
+  const box = document.createElement('div');
+  box.style.cssText = 'max-width:380px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px 28px;text-align:center';
+
+  box.innerHTML = '<div style="width:56px;height:56px;border-radius:16px;background:var(--grad);margin:0 auto 18px;display:flex;align-items:center;justify-content:center;font-size:24px">🔒</div>' +
+    '<h2 style="font-size:18px;font-weight:700;margin-bottom:10px;color:#a78bfa">' + lang.limitTitle + '</h2>' +
+    '<p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:24px">' + message + '</p>' +
+    '<a href="register.html?reason=guest_limit" style="display:block;padding:13px;border-radius:10px;background:var(--grad);color:#fff;font-weight:600;font-size:14px;text-decoration:none;margin-bottom:10px">' + lang.limitBtn + '</a>' +
+    '<button onclick="document.getElementById(\\'guestLimitOverlay\\').remove()" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:13px;cursor:pointer;font-family:\\'Inter\\',sans-serif">' + lang.limitLater + '</button>';
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
 </script>
 </body>
 </html>
-
