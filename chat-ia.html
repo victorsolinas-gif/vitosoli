@@ -682,6 +682,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+function fillInput(text){
+  const el = document.getElementById('input');
+  if(el){
+    el.value = text;
+    el.focus();
+    autoResize(el);
+  }
+}
+
 let conversationHistory = [];
 let isLoading = false;
 
@@ -990,10 +999,15 @@ function showGuestLimitModal(message){
     '<h2 style="font-size:18px;font-weight:700;margin-bottom:10px;color:#a78bfa">' + lang.limitTitle + '</h2>' +
     '<p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:24px">' + message + '</p>' +
     '<a href="register.html?reason=guest_limit" style="display:block;padding:13px;border-radius:10px;background:var(--grad);color:#fff;font-weight:600;font-size:14px;text-decoration:none;margin-bottom:10px">' + lang.limitBtn + '</a>' +
-    '<button onclick="document.getElementById(\\'guestLimitOverlay\\').remove()" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:13px;cursor:pointer;font-family:\\'Inter\\',sans-serif">' + lang.limitLater + '</button>';
+    '<button onclick="removeGuestLimitModal()" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:13px;cursor:pointer;font-family:\'Inter\',sans-serif">' + lang.limitLater + '</button>';
 
   overlay.appendChild(box);
   document.body.appendChild(overlay);
+}
+
+function removeGuestLimitModal(){
+  const el = document.getElementById('guestLimitOverlay');
+  if(el) el.remove();
 }
 </script>
 </body>
