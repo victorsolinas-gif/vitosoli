@@ -373,6 +373,8 @@
     .model-select { font-size: 12px; padding: 7px 10px; }
     .model-select svg { display: none; }
 
+    #quotaBadge { padding: 6px 8px; font-size: 10px; gap: 6px; }
+
     .msg-wrap { padding: 0 12px; }
 
     .welcome { padding: 20px 12px 24px; }
@@ -452,14 +454,24 @@
       </div>
     </div>
 
-    <div class="sidebar-bottom">
-      <div class="user-row">
-        <div class="avatar">J</div>
+    <div class="sidebar-bottom" style="position:relative">
+      <div class="user-row" id="userRow" onclick="toggleUserMenu()">
+        <div class="avatar" id="userAvatar">?</div>
         <div class="user-info">
-          <div class="user-name">Jean Dupont</div>
-          <div class="user-plan">Plan Pro</div>
+          <div class="user-name" id="userName">Invité</div>
+          <div class="user-plan" id="userPlan">Mode gratuit</div>
         </div>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7a7a9a" stroke-width="1.8"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      </div>
+      <div id="userMenu" style="display:none;position:absolute;bottom:calc(100% + 6px);left:12px;right:12px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:20">
+        <div id="userMenuLoginItem" style="display:none;padding:12px 14px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--text)" onclick="window.location='login.html'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          Se connecter
+        </div>
+        <div id="userMenuLogoutItem" style="display:none;padding:12px 14px;font-size:13px;cursor:pointer;align-items:center;gap:8px;color:#ff6b6b" onclick="logout()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          Se déconnecter
+        </div>
       </div>
     </div>
   </aside>
@@ -476,6 +488,17 @@
           <div class="model-dot"></div>
           Vitosoli Pro
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div id="quotaBadge" style="display:none;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:11px;color:var(--muted);font-family:'Inter',sans-serif;white-space:nowrap">
+          <span style="display:flex;align-items:center;gap:4px" title="Messages restants">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span id="quotaMsgText">–</span>
+          </span>
+          <span style="width:1px;height:12px;background:var(--border)"></span>
+          <span style="display:flex;align-items:center;gap:4px" title="Fichiers restants (images/PDF)">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span id="quotaFileText">–</span>
+          </span>
         </div>
       </div>
       <div class="topbar-actions">
@@ -957,6 +980,7 @@ async function sendMessage() {
       showGuestLimitModal(data.message);
       isLoading = false;
       sendBtn.disabled = false;
+      fetchQuota(); // rafraichir le badge (probablement a 0)
       return;
     }
 
@@ -964,6 +988,7 @@ async function sendMessage() {
     const reply = data.reply || 'Désolé, une erreur est survenue.';
     addMessage('ai', reply);
     conversationHistory.push({ role: 'assistant', content: reply });
+    if(data.quota) renderQuota(data.quota);
   } catch(err) {
     removeTyping();
     addMessage('ai', 'Une erreur est survenue. Vérifiez que le serveur est bien démarré.');
@@ -987,11 +1012,126 @@ if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
   if(authToken){
     localStorage.setItem('vitosoli_token', authToken);
     window.history.replaceState({}, document.title, window.location.pathname);
+    updateUserUI();
+    fetchQuota();
     setTimeout(() => {
       addMessage('ai', '✅ Votre compte a été confirmé avec succès ! Vous avez maintenant un accès illimité à Vitosoli.');
     }, 300);
   }
 })();
+
+// ── Decode JWT payload without verification (display only, server always re-verifies) ──
+function decodeJwtPayload(token){
+  try {
+    const parts = token.split('.');
+    if(parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+    return payload;
+  } catch(e){
+    return null;
+  }
+}
+
+// ── Update user row UI based on auth status ──
+function updateUserUI(){
+  const token = localStorage.getItem('vitosoli_token');
+  const avatarEl = document.getElementById('userAvatar');
+  const nameEl = document.getElementById('userName');
+  const planEl = document.getElementById('userPlan');
+  const loginItem = document.getElementById('userMenuLoginItem');
+  const logoutItem = document.getElementById('userMenuLogoutItem');
+
+  if(token){
+    const payload = decodeJwtPayload(token);
+    const email = payload && payload.email ? payload.email : null;
+    // Check expiry
+    const isExpired = payload && payload.exp && (payload.exp * 1000 < Date.now());
+
+    if(email && !isExpired){
+      avatarEl.textContent = email.charAt(0).toUpperCase();
+      nameEl.textContent = email;
+      planEl.textContent = 'Compte gratuit';
+      loginItem.style.display = 'none';
+      logoutItem.style.display = 'flex';
+      return;
+    } else {
+      // Token invalide/expire -> nettoyer
+      localStorage.removeItem('vitosoli_token');
+    }
+  }
+
+  // Invite / non connecte
+  avatarEl.textContent = '?';
+  nameEl.textContent = 'Invité';
+  planEl.textContent = 'Mode gratuit (3 messages)';
+  loginItem.style.display = 'flex';
+  logoutItem.style.display = 'none';
+}
+
+function toggleUserMenu(){
+  const menu = document.getElementById('userMenu');
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+// Close menu when clicking outside
+document.addEventListener('click', (e) => {
+  const userRow = document.getElementById('userRow');
+  const menu = document.getElementById('userMenu');
+  if(menu && menu.style.display === 'block' && !userRow.contains(e.target) && !menu.contains(e.target)){
+    menu.style.display = 'none';
+  }
+});
+
+function logout(){
+  localStorage.removeItem('vitosoli_token');
+  conversationHistory = [];
+  chatMessagesEl.innerHTML = '';
+  welcomeEl.style.display = '';
+  document.getElementById('userMenu').style.display = 'none';
+  updateUserUI();
+  window.location.href = 'login.html';
+}
+
+// Init user UI on load
+updateUserUI();
+
+// ── QUOTA BADGE ──
+function renderQuota(quota){
+  const badge = document.getElementById('quotaBadge');
+  const msgText = document.getElementById('quotaMsgText');
+  const fileText = document.getElementById('quotaFileText');
+  if(!quota){
+    badge.style.display = 'none';
+    return;
+  }
+  badge.style.display = 'flex';
+  msgText.textContent = quota.messagesRemaining + '/' + quota.messagesLimit;
+  fileText.textContent = quota.filesRemaining + '/' + quota.filesLimit;
+
+  // Couleur d'alerte si quasi epuise
+  const msgLow = quota.messagesRemaining <= Math.ceil(quota.messagesLimit * 0.15);
+  const fileLow = quota.filesRemaining === 0;
+  badge.style.borderColor = (msgLow || fileLow) ? 'rgba(255,107,43,.4)' : 'var(--border)';
+  msgText.style.color = msgLow ? '#ff6b2b' : 'var(--text)';
+  fileText.style.color = fileLow ? '#ff6b2b' : 'var(--text)';
+}
+
+async function fetchQuota(){
+  try {
+    const headers = {};
+    const token = localStorage.getItem('vitosoli_token');
+    if(token) headers['Authorization'] = 'Bearer ' + token;
+
+    const res = await fetch('https://vitosoli.onrender.com/quota', { headers });
+    const data = await res.json();
+    renderQuota(data.quota);
+  } catch(err){
+    // Silencieux : le badge reste simplement masque si la requete echoue
+  }
+}
+
+// Charger le quota au demarrage de la page
+fetchQuota();
 
 // ── GUEST LIMIT MODAL ──
 function showGuestLimitModal(message){
