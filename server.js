@@ -163,7 +163,7 @@ function verificationEmailHtml(link) {
   parts.push('<div style="text-align:center;margin-bottom:24px"><div style="display:inline-flex;width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#7c5cfc,#e040fb,#00d4ff);align-items:center;justify-content:center;font-size:22px;color:#fff;line-height:48px">&#10022;</div></div>')
   parts.push('<h2 style="text-align:center;color:#a78bfa;font-size:22px;margin-bottom:16px">Confirmez votre compte Vitosoli</h2>')
   parts.push('<p style="font-size:14px;line-height:1.6;color:#a0a0c0">Bonjour,</p>')
-  parts.push('<p style="font-size:14px;line-height:1.6;color:#a0a0c0">Cliquez sur le bouton ci-dessous pour confirmer votre adresse email et acceder a Vitosoli sans limite.</p>')
+  parts.push('<p style="font-size:14px;line-height:1.6;color:#a0a0c0">Cliquez sur le bouton ci-dessous pour confirmer votre adresse email et beneficier de 20 messages gratuits par mois.</p>')
   parts.push('<div style="text-align:center;margin:28px 0"><a href="' + link + '" style="display:inline-block;padding:14px 32px;border-radius:10px;background:linear-gradient(135deg,#7c5cfc,#e040fb,#00d4ff);color:#fff;text-decoration:none;font-weight:600;font-size:14px">Confirmer mon compte</a></div>')
   parts.push('<p style="font-size:12px;color:#6b6d8a;text-align:center">Ce lien est valable 1 heure. Si vous n avez pas demande cet email, ignorez-le.</p>')
   parts.push('</div>')
