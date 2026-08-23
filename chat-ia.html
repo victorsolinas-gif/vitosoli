@@ -714,10 +714,17 @@ function handleFileSelect(event){
     return;
   }
 
+  const isImage = file.type.startsWith('image/');
+  const isPdf = file.type === 'application/pdf';
+  if(!isImage && !isPdf){
+    alert('Format non supporté. Seuls les images (JPG, PNG, WEBP, GIF) et les PDF sont acceptés.');
+    event.target.value = '';
+    return;
+  }
+
   const reader = new FileReader();
   reader.onload = (e) => {
     const base64 = e.target.result.split(',')[1];
-    const isImage = file.type.startsWith('image/');
     attachedFile = { type: isImage ? 'image' : 'pdf', base64, mimeType: file.type, name: file.name, size: file.size };
 
     // Show preview bar
