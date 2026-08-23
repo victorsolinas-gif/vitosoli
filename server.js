@@ -228,7 +228,7 @@ app.use(cors({
 }))
 
 app.use(securityHeaders)
-app.use(express.json({ limit: '8mb' }))
+app.use(express.json({ limit: '10mb' }))
 app.use(express.static(__dirname))
 
 // ============================================
@@ -256,8 +256,8 @@ function validateMessages(messages) {
       for (const block of msg.content) {
         if (!block.type) return false
         if (block.type === 'text' && typeof block.text === 'string' && block.text.length > 8000) return false
-        // Limite taille base64 (~5MB)
-        if (block.source && block.source.data && block.source.data.length > 7 * 1024 * 1024) return false
+        // Limite taille base64 (~5MB fichier reel, soit ~6.7MB en base64)
+        if (block.source && block.source.data && block.source.data.length > 6.7 * 1024 * 1024) return false
       }
     } else {
       return false
@@ -283,6 +283,41 @@ function sanitizeMessage(msg) {
     })
   }
 }
+
+// ============================================
+// ROUTE: /login (envoi d'un lien de connexion)
+// ============================================
+app.post('/login', rateLimiter, async (req, res) => {
+  const { email } = req.body
+
+  if (!email || !isValidEmailFormat(email)) {
+    return res.status(400).json({ error: 'Adresse email invalide.' })
+  }
+
+  const database = await getDb()
+  const emailLower = email.toLowerCase()
+
+  if (!database) {
+    return res.status(500).json({ error: 'Service temporairement indisponible. Reessayez plus tard.' })
+  }
+
+  const users = database.collection('users')
+  const existing = await users.findOne({ email: emailLower })
+
+  if (!existing || !existing.verified) {
+    return res.status(404).json({ error: 'Aucun compte verifie trouve avec cet email. Creez un compte gratuit.' })
+  }
+
+  const token = signToken({ email: emailLower, type: 'verify' }, '1h')
+  const link = SITE_URL + '/verify?token=' + token
+  const sent = await sendEmail(email, 'Votre lien de connexion Vitosoli', verificationEmailHtml(link))
+
+  if (!sent && process.env.RESEND_API_KEY) {
+    return res.status(500).json({ error: 'Erreur lors de l envoi de l email. Reessayez.' })
+  }
+
+  res.json({ success: true, message: 'Un lien de connexion a ete envoye a votre adresse email.' })
+})
 
 // ============================================
 // ROUTE: /register
@@ -393,7 +428,16 @@ function verifyPage(success, message) {
 // ============================================
 // ROUTE: /chat (mode invite)
 // ============================================
-const GUEST_LIMIT = 3
+const GUEST_MSG_LIMIT = 3     // messages texte pour les invites
+const GUEST_FILE_LIMIT = 1    // fichiers separes (en plus des 3 messages) pour les invites
+
+const FREE_MSG_LIMIT = 20     // messages mensuels pour les inscrits gratuits
+const FREE_FILE_LIMIT = 3     // fichiers inclus dans les 20 messages
+const FREE_FILE_COST = 6      // "cout" en messages d'un fichier pour un inscrit gratuit (3 fichiers x 6 = 18, laisse 2 messages texte)
+
+const PAID_MSG_LIMIT = 300    // messages du forfait payant (a venir avec Stripe)
+const PAID_FILE_LIMIT = 30    // fichiers inclus dans le forfait payant
+const PAID_FILE_COST = 15     // "cout" en messages d'un fichier pour le forfait payant
 
 app.post('/chat', rateLimiter, async (req, res) => {
   const { messages } = req.body
@@ -403,6 +447,10 @@ app.post('/chat', rateLimiter, async (req, res) => {
     return res.status(400).json({ error: 'Format de messages invalide.' })
   }
 
+  const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
+  const hasAttachment = lastUserMsg && Array.isArray(lastUserMsg.content) &&
+    lastUserMsg.content.some(b => b.type === 'image' || b.type === 'document')
+
   const authHeader = req.headers.authorization
   const token = (authHeader && authHeader.indexOf('Bearer ') === 0) ? authHeader.slice(7) : null
   const payload = token ? verifyToken(token) : null
@@ -410,20 +458,33 @@ app.post('/chat', rateLimiter, async (req, res) => {
 
   const database = await getDb()
 
+  // ── MODE INVITE : 3 messages texte + 1 fichier separe ──
   if (!isAuthenticated && database) {
     const guests = database.collection('guests')
     let guest = await guests.findOne({ ip: ip })
 
     if (!guest) {
       const location = await geolocate(ip)
-      guest = { ip: ip, count: 0, country: location.country, city: location.city }
+      guest = { ip: ip, count: 0, fileCount: 0, country: location.country, city: location.city }
     }
 
-    if (guest.count >= GUEST_LIMIT) {
-      return res.status(403).json({
-        error: 'guest_limit',
-        message: 'Vous avez atteint la limite de ' + GUEST_LIMIT + ' messages gratuits. Creez un compte gratuit pour continuer sans limite.'
-      })
+    const currentFileCount = guest.fileCount || 0
+    const currentMsgCount = guest.count || 0
+
+    if (hasAttachment) {
+      if (currentFileCount >= GUEST_FILE_LIMIT) {
+        return res.status(403).json({
+          error: 'guest_limit',
+          message: 'Vous avez atteint la limite de ' + GUEST_FILE_LIMIT + ' fichier (image/PDF) en mode invite. Creez un compte gratuit pour en envoyer davantage.'
+        })
+      }
+    } else {
+      if (currentMsgCount >= GUEST_MSG_LIMIT) {
+        return res.status(403).json({
+          error: 'guest_limit',
+          message: 'Vous avez atteint la limite de ' + GUEST_MSG_LIMIT + ' messages gratuits. Creez un compte gratuit pour continuer.'
+        })
+      }
     }
 
     await guests.updateOne(
@@ -431,10 +492,64 @@ app.post('/chat', rateLimiter, async (req, res) => {
       {
         $set: { lastSeen: new Date(), country: guest.country, city: guest.city },
         $setOnInsert: { firstSeen: new Date() },
-        $inc: { count: 1 }
+        $inc: { count: hasAttachment ? 0 : 1, fileCount: hasAttachment ? 1 : 0 }
       },
       { upsert: true }
     )
+  }
+
+  // ── UTILISATEUR INSCRIT : 20 messages/mois, 3 fichiers inclus (cout 6 messages/fichier) ──
+  if (isAuthenticated && database) {
+    const users = database.collection('users')
+    const user = await users.findOne({ email: payload.email })
+
+    if (user) {
+      // Reset mensuel du quota si on a change de mois
+      const now = new Date()
+      const lastReset = user.quotaResetAt ? new Date(user.quotaResetAt) : null
+      const needsReset = !lastReset || lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear()
+
+      let msgUsed = needsReset ? 0 : (user.msgUsed || 0)
+      let fileUsed = needsReset ? 0 : (user.fileUsed || 0)
+
+      // TODO: quand Stripe sera integre, verifier ici user.plan === 'paid' pour appliquer PAID_MSG_LIMIT / PAID_FILE_LIMIT / PAID_FILE_COST a la place
+      const msgLimit = FREE_MSG_LIMIT
+      const fileLimit = FREE_FILE_LIMIT
+      const fileCost = FREE_FILE_COST
+
+      if (hasAttachment) {
+        if (fileUsed >= fileLimit) {
+          return res.status(403).json({
+            error: 'guest_limit',
+            message: 'Vous avez atteint la limite de ' + fileLimit + ' fichiers (images/PDF) inclus dans votre forfait gratuit ce mois-ci.'
+          })
+        }
+        if (msgUsed + fileCost > msgLimit) {
+          return res.status(403).json({
+            error: 'guest_limit',
+            message: 'Votre quota de messages mensuel ne permet plus d\'envoyer de fichier ce mois-ci.'
+          })
+        }
+      } else {
+        if (msgUsed >= msgLimit) {
+          return res.status(403).json({
+            error: 'guest_limit',
+            message: 'Vous avez atteint votre limite de ' + msgLimit + ' messages gratuits ce mois-ci.'
+          })
+        }
+      }
+
+      await users.updateOne(
+        { email: payload.email },
+        {
+          $set: {
+            quotaResetAt: needsReset ? now : (user.quotaResetAt || now),
+            msgUsed: msgUsed + (hasAttachment ? fileCost : 1),
+            fileUsed: fileUsed + (hasAttachment ? 1 : 0)
+          }
+        }
+      )
+    }
   }
 
   const cleanMessages = messages.map(m => sanitizeMessage(m))
@@ -465,7 +580,7 @@ app.post('/chat', rateLimiter, async (req, res) => {
   try {
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
+      max_tokens: 800,
       system: systemPrompt,
       tools: [{ type: 'web_search_20250305', name: 'web_search' }],
       messages: cleanMessages
@@ -592,6 +707,6 @@ getDb().then(() => {
   app.listen(PORT, () => {
     console.log('Vitosoli server running -> http://localhost:' + PORT)
     console.log('Securite : Rate limiting, CORS, Headers, Validation')
-    console.log('Mode invite : ' + GUEST_LIMIT + ' messages avant inscription')
+    console.log('Mode invite : ' + GUEST_MSG_LIMIT + ' messages + ' + GUEST_FILE_LIMIT + ' fichier avant inscription')
   })
 })
