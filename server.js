@@ -457,6 +457,7 @@ app.post('/chat', rateLimiter, async (req, res) => {
   const isAuthenticated = !!(payload && payload.type === 'session')
 
   const database = await getDb()
+  let quotaInfo = null // sera rempli selon le type d'utilisateur pour etre renvoye au frontend
 
   // ── MODE INVITE : 3 messages texte + 1 fichier separe ──
   if (!isAuthenticated && database) {
@@ -487,6 +488,9 @@ app.post('/chat', rateLimiter, async (req, res) => {
       }
     }
 
+    const newMsgCount = currentMsgCount + (hasAttachment ? 0 : 1)
+    const newFileCount = currentFileCount + (hasAttachment ? 1 : 0)
+
     await guests.updateOne(
       { ip: ip },
       {
@@ -496,6 +500,14 @@ app.post('/chat', rateLimiter, async (req, res) => {
       },
       { upsert: true }
     )
+
+    quotaInfo = {
+      plan: 'guest',
+      messagesRemaining: Math.max(0, GUEST_MSG_LIMIT - newMsgCount),
+      messagesLimit: GUEST_MSG_LIMIT,
+      filesRemaining: Math.max(0, GUEST_FILE_LIMIT - newFileCount),
+      filesLimit: GUEST_FILE_LIMIT
+    }
   }
 
   // ── UTILISATEUR INSCRIT : 20 messages/mois, 3 fichiers inclus (cout 6 messages/fichier) ──
@@ -539,16 +551,27 @@ app.post('/chat', rateLimiter, async (req, res) => {
         }
       }
 
+      const newMsgUsed = msgUsed + (hasAttachment ? fileCost : 1)
+      const newFileUsed = fileUsed + (hasAttachment ? 1 : 0)
+
       await users.updateOne(
         { email: payload.email },
         {
           $set: {
             quotaResetAt: needsReset ? now : (user.quotaResetAt || now),
-            msgUsed: msgUsed + (hasAttachment ? fileCost : 1),
-            fileUsed: fileUsed + (hasAttachment ? 1 : 0)
+            msgUsed: newMsgUsed,
+            fileUsed: newFileUsed
           }
         }
       )
+
+      quotaInfo = {
+        plan: 'free',
+        messagesRemaining: Math.max(0, msgLimit - newMsgUsed),
+        messagesLimit: msgLimit,
+        filesRemaining: Math.max(0, fileLimit - newFileUsed),
+        filesLimit: fileLimit
+      }
     }
   }
 
@@ -592,7 +615,7 @@ app.post('/chat', rateLimiter, async (req, res) => {
       .map(block => block.text)
       .join('\n')
 
-    res.json({ reply: textContent || 'Désolé, je n\'ai pas pu générer une réponse.', authenticated: isAuthenticated })
+    res.json({ reply: textContent || 'Désolé, je n\'ai pas pu générer une réponse.', authenticated: isAuthenticated, quota: quotaInfo })
   } catch (error) {
     console.error('Erreur API:', error.message)
     res.status(500).json({ error: 'Erreur serveur. Reessayez.' })
@@ -691,6 +714,61 @@ app.get('/api/admin/stats', async (req, res) => {
 // ============================================
 // HEALTHCHECK
 // ============================================
+// ============================================
+// ROUTE: /quota (verifie le quota restant sans envoyer de message)
+// ============================================
+app.get('/quota', rateLimiter, async (req, res) => {
+  const ip = getClientIp(req)
+  const authHeader = req.headers.authorization
+  const token = (authHeader && authHeader.indexOf('Bearer ') === 0) ? authHeader.slice(7) : null
+  const payload = token ? verifyToken(token) : null
+  const isAuthenticated = !!(payload && payload.type === 'session')
+
+  const database = await getDb()
+  if (!database) {
+    return res.json({ quota: null })
+  }
+
+  if (!isAuthenticated) {
+    const guests = database.collection('guests')
+    const guest = await guests.findOne({ ip: ip })
+    const msgCount = guest ? (guest.count || 0) : 0
+    const fileCount = guest ? (guest.fileCount || 0) : 0
+
+    return res.json({
+      quota: {
+        plan: 'guest',
+        messagesRemaining: Math.max(0, GUEST_MSG_LIMIT - msgCount),
+        messagesLimit: GUEST_MSG_LIMIT,
+        filesRemaining: Math.max(0, GUEST_FILE_LIMIT - fileCount),
+        filesLimit: GUEST_FILE_LIMIT
+      }
+    })
+  }
+
+  const users = database.collection('users')
+  const user = await users.findOne({ email: payload.email })
+  if (!user) {
+    return res.json({ quota: null })
+  }
+
+  const now = new Date()
+  const lastReset = user.quotaResetAt ? new Date(user.quotaResetAt) : null
+  const needsReset = !lastReset || lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear()
+  const msgUsed = needsReset ? 0 : (user.msgUsed || 0)
+  const fileUsed = needsReset ? 0 : (user.fileUsed || 0)
+
+  res.json({
+    quota: {
+      plan: 'free',
+      messagesRemaining: Math.max(0, FREE_MSG_LIMIT - msgUsed),
+      messagesLimit: FREE_MSG_LIMIT,
+      filesRemaining: Math.max(0, FREE_FILE_LIMIT - fileUsed),
+      filesLimit: FREE_FILE_LIMIT
+    }
+  })
+})
+
 app.get('/health', (_, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }))
 
 // ============================================
