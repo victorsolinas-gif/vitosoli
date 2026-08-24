@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Vitosoli — Carte Astrale</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07080f;--surface:#0d0f1c;--surface2:#171728;--surface3:#1f2038;
+  --border:rgba(255,255,255,0.07);--text:#eeeaff;--muted:#6b6d8a;
+  --grad:linear-gradient(135deg,#7c5cfc,#e040fb,#00d4ff);
+  --gold:#ffd166;
+  --safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px);
+}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(40px + var(--safe-bottom));max-width:680px;margin:0 auto}
+
+.orb{position:fixed;border-radius:50%;pointer-events:none;z-index:0;filter:blur(110px);opacity:.18}
+.orb-a{width:480px;height:480px;top:-150px;right:-120px;background:radial-gradient(circle,#7c5cfc,transparent)}
+.orb-b{width:420px;height:420px;bottom:-120px;left:-130px;background:radial-gradient(circle,#e040fb,transparent)}
+
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;position:relative;z-index:1}
+.header-left{display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;border-radius:10px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff}
+.header-title{font-family:'Syne',sans-serif;font-weight:800;font-size:17px}
+.back-btn{
+  width:34px;height:34px;border-radius:10px;border:1px solid var(--border);
+  background:var(--surface);color:var(--muted);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;text-decoration:none;
+}
+
+.hero{text-align:center;margin-bottom:28px;position:relative;z-index:1}
+.hero-icon{font-size:40px;margin-bottom:8px}
+.hero h1{font-family:'Syne',sans-serif;font-weight:800;font-size:24px;margin-bottom:8px;
+  background:linear-gradient(135deg,#a78bfa,#f472b6,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{font-size:13px;color:var(--muted);line-height:1.6;max-width:440px;margin:0 auto}
+
+/* FORM CARD */
+.form-card{
+  position:relative;z-index:1;background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:24px;margin-bottom:20px;
+}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.field input{
+  width:100%;background:var(--surface2);border:1.5px solid var(--border);
+  border-radius:10px;padding:12px 14px;color:var(--text);
+  font-size:15px;font-family:'Inter',sans-serif;outline:none;
+  transition:border-color .2s;
+}
+.field input:focus{border-color:rgba(124,92,252,.5)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* Place autocomplete */
+.place-wrap{position:relative}
+.place-results{
+  position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:10;
+  background:var(--surface2);border:1px solid var(--border);border-radius:10px;
+  max-height:200px;overflow-y:auto;display:none;
+}
+.place-results.visible{display:block}
+.place-item{padding:10px 14px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border)}
+.place-item:last-child{border-bottom:none}
+.place-item:hover{background:rgba(124,92,252,.1)}
+.place-item small{display:block;color:var(--muted);font-size:11px;margin-top:2px}
+
+.btn{
+  width:100%;padding:14px;border-radius:12px;border:none;
+  background:var(--grad);color:#fff;font-size:15px;font-weight:600;
+  font-family:'Inter',sans-serif;cursor:pointer;
+  transition:opacity .2s,transform .15s;-webkit-tap-highlight-color:transparent;
+}
+.btn:hover{opacity:.9;transform:translateY(-1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+.spinner{
+  display:inline-block;width:14px;height:14px;
+  border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+  border-radius:50%;animation:spin .6s linear infinite;
+  vertical-align:middle;margin-right:6px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.error-box{
+  margin-top:14px;padding:12px;border-radius:10px;
+  background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.25);
+  color:#ff6b6b;font-size:12px;text-align:center;display:none;
+}
+
+/* RESULTS */
+.results{display:none;position:relative;z-index:1}
+.results.visible{display:block}
+
+/* Wheel */
+.wheel-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:20px;margin-bottom:16px;
+  display:flex;align-items:center;justify-content:center;
+}
+#wheelSvg{width:100%;max-width:420px;height:auto}
+
+/* Big three */
+.big-three{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.big-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;padding:16px 10px;text-align:center;
+}
+.big-card .icon{font-size:24px;margin-bottom:6px}
+.big-card .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.big-card .value{font-family:'Syne',sans-serif;font-weight:800;font-size:14px;
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.big-card .degree{font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:2px}
+
+/* Planets table */
+.section-title{
+  font-family:'Syne',sans-serif;font-weight:800;font-size:15px;
+  margin:20px 0 12px;display:flex;align-items:center;gap:8px;
+}
+.planets-grid{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;overflow:hidden;margin-bottom:16px;
+}
+.planet-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;
+}
+.planet-row:last-child{border-bottom:none}
+.planet-name{display:flex;align-items:center;gap:10px;font-weight:500}
+.planet-symbol{font-size:18px;width:24px;text-align:center}
+.planet-pos{font-family:'JetBrains Mono',monospace;color:var(--muted);font-size:12px;text-align:right}
+.planet-pos strong{color:var(--text)}
+.house-tag{
+  display:inline-block;margin-left:8px;padding:2px 8px;border-radius:100px;
+  background:rgba(124,92,252,.12);color:#a78bfa;font-size:10px;font-weight:600;
+}
+
+/* Aspects */
+.aspects-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.aspect-chip{
+  display:flex;align-items:center;gap:6px;
+  padding:8px 12px;border-radius:100px;
+  background:var(--surface);border:1px solid var(--border);
+  font-size:11px;font-family:'JetBrains Mono',monospace;
+}
+.aspect-chip .symbol{font-size:14px;color:var(--gold)}
+
+/* Analysis */
+.analysis-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:24px;margin-bottom:16px;
+}
+.analysis-card h3{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;margin-bottom:12px;
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.analysis-text{font-size:14px;line-height:1.8;color:#d4d2ed;white-space:pre-wrap}
+.analysis-loading{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
+
+.new-chart-btn{
+  width:100%;padding:13px;border-radius:12px;background:transparent;
+  border:1px solid var(--border);color:var(--muted);font-size:13px;
+  cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px;
+}
+.new-chart-btn:hover{border-color:rgba(124,92,252,.4);color:var(--text)}
+
+@media(max-width:420px){
+  .big-three{gap:6px}
+  .big-card{padding:12px 6px}
+}
+</style>
+</head>
+<body>
+
+<div class="orb orb-a"></div>
+<div class="orb orb-b"></div>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo-icon">✦</div>
+    <div class="header-title">Carte Astrale</div>
+  </div>
+  <a href="chat-ia.html" class="back-btn">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  </a>
+</div>
+
+<!-- FORM -->
+<div id="formView">
+  <div class="hero">
+    <div class="hero-icon">🔮</div>
+    <h1>Découvrez votre carte astrale</h1>
+    <p>Entrez votre date, heure et lieu de naissance pour générer votre carte du ciel complète : positions planétaires, maisons, aspects et analyse personnalisée par IA.</p>
+  </div>
+
+  <div class="form-card">
+    <div class="field-row">
+      <div class="field">
+        <label for="birthDate">Date de naissance</label>
+        <input type="date" id="birthDate" required>
+      </div>
+      <div class="field">
+        <label for="birthTime">Heure de naissance</label>
+        <input type="time" id="birthTime" required>
+      </div>
+    </div>
+
+    <div class="field place-wrap">
+      <label for="birthPlace">Lieu de naissance</label>
+      <input type="text" id="birthPlace" placeholder="Ville, Pays..." autocomplete="off" required>
+      <div class="place-results" id="placeResults"></div>
+    </div>
+
+    <button class="btn" id="generateBtn" onclick="generateChart()">✨ Générer ma carte astrale</button>
+
+    <div class="error-box" id="errorBox"></div>
+  </div>
+</div>
+
+<!-- RESULTS -->
+<div id="resultsView" class="results">
+  <div class="wheel-card">
+    <svg id="wheelSvg" viewBox="0 0 400 400"></svg>
+  </div>
+
+  <div class="big-three" id="bigThree"></div>
+
+  <div class="section-title">🪐 Positions planétaires</div>
+  <div class="planets-grid" id="planetsGrid"></div>
+
+  <div class="section-title">🏠 Maisons astrologiques</div>
+  <div class="planets-grid" id="housesGrid"></div>
+
+  <div class="section-title">⚡ Aspects majeurs</div>
+  <div class="aspects-grid" id="aspectsGrid"></div>
+
+  <div class="analysis-card">
+    <h3>✨ Analyse complète</h3>
+    <div id="analysisContent">
+      <div class="analysis-loading"><span class="spinner" style="border-top-color:#a78bfa"></span> Vitosoli analyse votre carte du ciel...</div>
+    </div>
+  </div>
+
+  <button class="new-chart-btn" onclick="resetForm()">🔄 Calculer une nouvelle carte</button>
+</div>
+
+<script>
+const ZODIAC_SYMBOLS = ['♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓'];
+const ZODIAC_NAMES = ['Bélier','Taureau','Gémeaux','Cancer','Lion','Vierge','Balance','Scorpion','Sagittaire','Capricorne','Verseau','Poissons'];
+const PLANET_SYMBOLS = { sun:'☉', moon:'☽', mercury:'☿', venus:'♀', mars:'♂', jupiter:'♃', saturn:'♄', uranus:'♅', neptune:'♆', pluto:'♇' };
+const PLANET_NAMES_FR = { sun:'Soleil', moon:'Lune', mercury:'Mercure', venus:'Vénus', mars:'Mars', jupiter:'Jupiter', saturn:'Saturne', uranus:'Uranus', neptune:'Neptune', pluto:'Pluton' };
+const ASPECT_COLORS = { 'Conjonction':'#ffd166', 'Sextile':'#00d4ff', 'Carré':'#ff6b6b', 'Trigone':'#00ff88', 'Opposition':'#e040fb' };
+
+let selectedPlace = null;
+
+// ── PLACE AUTOCOMPLETE (Nominatim via server) ──
+const placeInput = document.getElementById('birthPlace');
+const placeResults = document.getElementById('placeResults');
+let placeTimeout = null;
+
+placeInput.addEventListener('input', () => {
+  selectedPlace = null;
+  const query = placeInput.value.trim();
+  clearTimeout(placeTimeout);
+  if(query.length < 3){
+    placeResults.classList.remove('visible');
+    return;
+  }
+  placeTimeout = setTimeout(() => searchPlace(query), 400);
+});
+
+async function searchPlace(query){
+  try {
+    const res = await fetch('https://vitosoli.onrender.com/astro/geocode?q=' + encodeURIComponent(query));
+    const data = await res.json();
+    if(data.results && data.results.length){
+      placeResults.innerHTML = data.results.map((r,i) =>
+        `<div class="place-item" onclick="selectPlace(${i})">${r.name}<small>${r.detail}</small></div>`
+      ).join('');
+      placeResults.dataset.results = JSON.stringify(data.results);
+      placeResults.classList.add('visible');
+    } else {
+      placeResults.classList.remove('visible');
+    }
+  } catch(err){
+    placeResults.classList.remove('visible');
+  }
+}
+
+function selectPlace(index){
+  const results = JSON.parse(placeResults.dataset.results);
+  selectedPlace = results[index];
+  placeInput.value = selectedPlace.name;
+  placeResults.classList.remove('visible');
+}
+
+document.addEventListener('click', (e) => {
+  if(!placeInput.contains(e.target) && !placeResults.contains(e.target)){
+    placeResults.classList.remove('visible');
+  }
+});
+
+// ── GENERATE CHART ──
+async function generateChart(){
+  const date = document.getElementById('birthDate').value;
+  const time = document.getElementById('birthTime').value;
+  const errorBox = document.getElementById('errorBox');
+  errorBox.style.display = 'none';
+
+  if(!date || !time){
+    showError('Merci de remplir la date et l\\'heure de naissance.');
+    return;
+  }
+  if(!selectedPlace){
+    showError('Merci de sélectionner un lieu de naissance dans la liste.');
+    return;
+  }
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Calcul en cours...';
+
+  const [year, month, day] = date.split('-').map(Number);
+  const [hour, minute] = time.split(':').map(Number);
+
+  try {
+    const res = await fetch('https://vitosoli.onrender.com/astro/chart', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        year, month, day, hour, minute,
+        latitude: selectedPlace.lat,
+        longitude: selectedPlace.lon,
+        timezoneOffset: selectedPlace.timezoneOffset || 0,
+        placeName: selectedPlace.name
+      })
+    });
+
+    const data = await res.json();
+
+    if(!res.ok){
+      showError(data.error || 'Une erreur est survenue.');
+      btn.disabled = false;
+      btn.innerHTML = '✨ Générer ma carte astrale';
+      return;
+    }
+
+    displayChart(data.chart, selectedPlace.name, date, time);
+
+    document.getElementById('formView').style.display = 'none';
+    document.getElementById('resultsView').classList.add('visible');
+    window.scrollTo(0,0);
+
+    requestAnalysis(data.chart, selectedPlace.name, date, time);
+
+  } catch(err){
+    showError('Erreur de connexion au serveur. Réessayez.');
+    btn.disabled = false;
+    btn.innerHTML = '✨ Générer ma carte astrale';
+  }
+}
+
+function showError(msg){
+  const errorBox = document.getElementById('errorBox');
+  errorBox.textContent = '⚠️ ' + msg;
+  errorBox.style.display = 'block';
+}
+
+function resetForm(){
+  document.getElementById('formView').style.display = 'block';
+  document.getElementById('resultsView').classList.remove('visible');
+  document.getElementById('generateBtn').disabled = false;
+  document.getElementById('generateBtn').innerHTML = '✨ Générer ma carte astrale';
+  window.scrollTo(0,0);
+}
+
+// ── DISPLAY CHART ──
+function displayChart(chart, placeName, date, time){
+  drawWheel(chart);
+  renderBigThree(chart);
+  renderPlanets(chart);
+  renderHouses(chart);
+  renderAspects(chart);
+}
+
+function renderBigThree(chart){
+  const big = [
+    { icon:'☉', label:'Soleil', planet: chart.planets.sun },
+    { icon:'☽', label:'Lune', planet: chart.planets.moon },
+    { icon:'⬆️', label:'Ascendant', planet: chart.ascendant }
+  ];
+  document.getElementById('bigThree').innerHTML = big.map(b => `
+    <div class="big-card">
+      <div class="icon">${b.icon}</div>
+      <div class="label">${b.label}</div>
+      <div class="value">${b.planet.sign}</div>
+      <div class="degree">${b.planet.degree}°${String(b.planet.minute).padStart(2,'0')}'</div>
+    </div>
+  `).join('');
+}
+
+function renderPlanets(chart){
+  const order = ['sun','moon','mercury','venus','mars','jupiter','saturn','uranus','neptune','pluto'];
+  document.getElementById('planetsGrid').innerHTML = order.map(key => {
+    const p = chart.planets[key];
+    return `
+      <div class="planet-row">
+        <div class="planet-name">
+          <span class="planet-symbol">${PLANET_SYMBOLS[key]}</span>
+          ${PLANET_NAMES_FR[key]}
+        </div>
+        <div class="planet-pos">
+          ${ZODIAC_SYMBOLS[p.signIndex]} <strong>${p.sign}</strong> ${p.degree}°${String(p.minute).padStart(2,'0')}'
+          <span class="house-tag">Maison ${p.house}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderHouses(chart){
+  document.getElementById('housesGrid').innerHTML = chart.houses.map(h => `
+    <div class="planet-row">
+      <div class="planet-name">Maison ${h.number}</div>
+      <div class="planet-pos">${ZODIAC_SYMBOLS[h.signIndex]} <strong>${h.sign}</strong> ${h.degree}°${String(h.minute).padStart(2,'0')}'</div>
+    </div>
+  `).join('');
+}
+
+function renderAspects(chart){
+  if(!chart.aspects.length){
+    document.getElementById('aspectsGrid').innerHTML = '<div style="color:var(--muted);font-size:12px;padding:8px">Aucun aspect majeur détecté.</div>';
+    return;
+  }
+  document.getElementById('aspectsGrid').innerHTML = chart.aspects.map(a => `
+    <div class="aspect-chip">
+      <span>${PLANET_SYMBOLS[a.planet1]}</span>
+      <span class="symbol" style="color:${ASPECT_COLORS[a.type]}">${a.symbol}</span>
+      <span>${PLANET_SYMBOLS[a.planet2]}</span>
+      <span style="color:var(--muted)">${a.type} (${a.orb}°)</span>
+    </div>
+  `).join('');
+}
+
+// ── ZODIAC WHEEL SVG ──
+function drawWheel(chart){
+  const svg = document.getElementById('wheelSvg');
+  const cx = 200, cy = 200;
+  const outerR = 190, zodiacR = 165, planetR = 130, innerR = 60;
+
+  let elements = [];
+
+  // Background circle
+  elements.push(`<circle cx="${cx}" cy="${cy}" r="${outerR}" fill="#0a0a16" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`);
+  elements.push(`<circle cx="${cx}" cy="${cy}" r="${zodiacR}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`);
+  elements.push(`<circle cx="${cx}" cy="${cy}" r="${innerR}" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`);
+
+  // Ascendant offset: place ascendant at left (180° in screen = 9 o'clock position)
+  const ascOffset = chart.ascendant.longitude;
+
+  function angleToXY(longitude, radius){
+    // Ecliptic longitude 0 = Aries. Place ascendant at left side (180° screen angle), going counter-clockwise
+    const adjusted = longitude - ascOffset;
+    const screenAngle = (180 - adjusted) * Math.PI / 180;
+    return { x: cx + radius * Math.cos(screenAngle), y: cy - radius * Math.sin(screenAngle) };
+  }
+
+  // Zodiac sign segments (30° each) with symbols
+  for(let i = 0; i < 12; i++){
+    const lonStart = i * 30;
+    const adjusted = lonStart - ascOffset;
+    const screenAngleStart = (180 - adjusted) * Math.PI / 180;
+    const screenAngleEnd = (180 - (adjusted + 30)) * Math.PI / 180;
+
+    // Division line
+    const x1 = cx + zodiacR * Math.cos(screenAngleStart);
+    const y1 = cy - zodiacR * Math.sin(screenAngleStart);
+    const x2 = cx + outerR * Math.cos(screenAngleStart);
+    const y2 = cy - outerR * Math.sin(screenAngleStart);
+    elements.push(`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>`);
+
+    // Sign symbol position (middle of segment)
+    const midAngle = (screenAngleStart + screenAngleEnd) / 2;
+    const symR = (outerR + zodiacR) / 2;
+    const sx = cx + symR * Math.cos(midAngle);
+    const sy = cy - symR * Math.sin(midAngle);
+    elements.push(`<text x="${sx}" y="${sy}" fill="#a78bfa" font-size="14" text-anchor="middle" dominant-baseline="middle" font-family="Inter,sans-serif">${ZODIAC_SYMBOLS[i]}</text>`);
+  }
+
+  // House cusp lines (from inner to zodiac circle)
+  chart.houses.forEach((h, i) => {
+    const pos = angleToXY(h.longitude, zodiacR);
+    const posInner = angleToXY(h.longitude, innerR);
+    const isAngular = (i === 0 || i === 3 || i === 6 || i === 9); // AC, IC, DC, MC
+    elements.push(`<line x1="${posInner.x}" y1="${posInner.y}" x2="${pos.x}" y2="${pos.y}" stroke="${isAngular ? 'rgba(124,92,252,0.5)' : 'rgba(255,255,255,0.08)'}" stroke-width="${isAngular ? 1.5 : 1}"/>`);
+
+    // House number
+    const numPos = angleToXY(h.longitude + 15, innerR + 18);
+    elements.push(`<text x="${numPos.x}" y="${numPos.y}" fill="rgba(255,255,255,0.3)" font-size="9" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono,monospace">${h.number}</text>`);
+  });
+
+  // ASC / MC labels
+  const ascPos = angleToXY(chart.ascendant.longitude, outerR + 12);
+  elements.push(`<text x="${ascPos.x}" y="${ascPos.y}" fill="#ffd166" font-size="11" font-weight="700" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono,monospace">ASC</text>`);
+
+  const mcPos = angleToXY(chart.midheaven.longitude, outerR + 12);
+  elements.push(`<text x="${mcPos.x}" y="${mcPos.y}" fill="#ffd166" font-size="11" font-weight="700" text-anchor="middle" dominant-baseline="middle" font-family="JetBrains Mono,monospace">MC</text>`);
+
+  // Aspect lines (between planets, inside inner circle)
+  const planetPositions = {};
+  Object.entries(chart.planets).forEach(([key, p]) => {
+    planetPositions[key] = angleToXY(p.longitude, innerR);
+  });
+  chart.aspects.forEach(a => {
+    const p1 = planetPositions[a.planet1];
+    const p2 = planetPositions[a.planet2];
+    if(p1 && p2){
+      const color = ASPECT_COLORS[a.type] || '#666';
+      elements.push(`<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${color}" stroke-width="0.75" opacity="0.4"/>`);
+    }
+  });
+
+  // Planet symbols
+  const order = ['sun','moon','mercury','venus','mars','jupiter','saturn','uranus','neptune','pluto'];
+  // Collision avoidance: track used angles, nudge radius if too close
+  const placedAngles = [];
+  order.forEach(key => {
+    const p = chart.planets[key];
+    let radius = planetR;
+    // Check for nearby planets (within 6 degrees) and stagger radius
+    const nearby = placedAngles.filter(a => Math.abs(angleDiffWheel(a, p.longitude)) < 6);
+    radius -= nearby.length * 16;
+    placedAngles.push(p.longitude);
+
+    const pos = angleToXY(p.longitude, radius);
+    elements.push(`<circle cx="${pos.x}" cy="${pos.y}" r="11" fill="#171728" stroke="rgba(124,92,252,0.4)" stroke-width="1"/>`);
+    elements.push(`<text x="${pos.x}" y="${pos.y}" fill="#eeeaff" font-size="13" text-anchor="middle" dominant-baseline="middle" font-family="Inter,sans-serif">${PLANET_SYMBOLS[key]}</text>`);
+  });
+
+  svg.innerHTML = elements.join('');
+}
+
+function angleDiffWheel(a, b){
+  let diff = Math.abs(a - b) % 360;
+  if(diff > 180) diff = 360 - diff;
+  return diff;
+}
+
+// ── AI ANALYSIS ──
+async function requestAnalysis(chart, placeName, date, time){
+  const order = ['sun','moon','mercury','venus','mars','jupiter','saturn','uranus','neptune','pluto'];
+  let summary = `Date de naissance: ${date} à ${time} (UTC), Lieu: ${placeName}\\n\\n`;
+  summary += `Ascendant: ${chart.ascendant.sign} ${chart.ascendant.degree}°\\n`;
+  summary += `Milieu du Ciel (MC): ${chart.midheaven.sign} ${chart.midheaven.degree}°\\n\\n`;
+  summary += `Planètes:\\n`;
+  order.forEach(key => {
+    const p = chart.planets[key];
+    summary += `- ${PLANET_NAMES_FR[key]}: ${p.sign} ${p.degree}°${p.minute}' en Maison ${p.house}\\n`;
+  });
+  summary += `\\nAspects majeurs:\\n`;
+  chart.aspects.forEach(a => {
+    summary += `- ${PLANET_NAMES_FR[a.planet1]} ${a.type} ${PLANET_NAMES_FR[a.planet2]} (orbe ${a.orb}°)\\n`;
+  });
+
+  const systemPrompt = "Tu es Vitosoli, un astrologue expert bienveillant et pédagogue. À partir des données de carte astrale fournies, rédige une analyse complète, chaleureuse et personnalisée en français. Structure ta réponse avec des sections claires (utilise des titres courts précédés d'un emoji pertinent) : personnalité générale (Soleil, Lune, Ascendant), communication et intellect (Mercure), amour et relations (Vénus, Maison 7), énergie et action (Mars), expansion et chance (Jupiter), défis et structure (Saturne), aspects majeurs et leur signification, et enfin conseils et points d'attention. Sois precis, evite les généralités vagues, et relie les placements entre eux. Ne mentionne jamais que tu es une IA ou que ceci est generé automatiquement.";
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    const token = localStorage.getItem('vitosoli_token');
+    if(token) headers['Authorization'] = 'Bearer ' + token;
+
+    const res = await fetch('https://vitosoli.onrender.com/chat', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: 'Voici ma carte astrale, merci de me faire une analyse complète :\\n\\n' + summary }],
+        system: systemPrompt
+      })
+    });
+
+    const data = await res.json();
+    const content = document.getElementById('analysisContent');
+
+    if(data.error === 'guest_limit'){
+      content.innerHTML = `
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:16px">🔒 ${data.message}</p>
+        <a href="register.html?reason=guest_limit" style="display:block;text-align:center;padding:13px;border-radius:10px;background:var(--grad);color:#fff;font-weight:600;font-size:14px;text-decoration:none">Créer un compte gratuit</a>
+      `;
+      return;
+    }
+
+    if(data.error){
+      content.innerHTML = '<p style="color:#ff6b6b;font-size:13px">Une erreur est survenue lors de l\\'analyse. Réessayez plus tard.</p>';
+      return;
+    }
+
+    content.innerHTML = `<div class="analysis-text">${escapeHtml(data.reply)}</div>`;
+  } catch(err){
+    document.getElementById('analysisContent').innerHTML = '<p style="color:#ff6b6b;font-size:13px">Erreur de connexion. Réessayez plus tard.</p>';
+  }
+}
+
+function escapeHtml(text){
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>
