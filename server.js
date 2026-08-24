@@ -7,6 +7,7 @@ import { MongoClient } from 'mongodb'
 import jwt from 'jsonwebtoken'
 import dns from 'dns'
 import { promisify } from 'util'
+import crypto from 'crypto'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -129,6 +130,34 @@ function verifyToken(token) {
 }
 
 // ============================================
+// MOTS DE PASSE (hash via crypto.scrypt natif, sans dependance)
+// ============================================
+const scrypt = promisify(crypto.scrypt)
+
+async function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex')
+  const derivedKey = await scrypt(password, salt, 64)
+  return salt + ':' + derivedKey.toString('hex')
+}
+
+async function verifyPassword(password, storedHash) {
+  if (!storedHash || storedHash.indexOf(':') === -1) return false
+  const [salt, key] = storedHash.split(':')
+  try {
+    const derivedKey = await scrypt(password, salt, 64)
+    const keyBuffer = Buffer.from(key, 'hex')
+    if (keyBuffer.length !== derivedKey.length) return false
+    return crypto.timingSafeEqual(keyBuffer, derivedKey)
+  } catch {
+    return false
+  }
+}
+
+function isValidPassword(password) {
+  return typeof password === 'string' && password.length >= 8 && password.length <= 128
+}
+
+// ============================================
 // EMAIL (RESEND)
 // ============================================
 async function sendEmail(to, subject, html) {
@@ -170,6 +199,19 @@ function verificationEmailHtml(link) {
   return parts.join('')
 }
 
+function resetPasswordEmailHtml(link) {
+  const parts = []
+  parts.push('<div style="font-family:Inter,Arial,sans-serif;max-width:480px;margin:0 auto;background:#0d0f1c;color:#e8e6ff;border-radius:16px;padding:32px;border:1px solid rgba(255,255,255,0.07)">')
+  parts.push('<div style="text-align:center;margin-bottom:24px"><div style="display:inline-flex;width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#7c5cfc,#e040fb,#00d4ff);align-items:center;justify-content:center;font-size:22px;color:#fff;line-height:48px">&#10022;</div></div>')
+  parts.push('<h2 style="text-align:center;color:#a78bfa;font-size:22px;margin-bottom:16px">Reinitialisation de mot de passe</h2>')
+  parts.push('<p style="font-size:14px;line-height:1.6;color:#a0a0c0">Bonjour,</p>')
+  parts.push('<p style="font-size:14px;line-height:1.6;color:#a0a0c0">Vous avez demande la reinitialisation du mot de passe de votre compte Vitosoli. Cliquez sur le bouton ci-dessous pour choisir un nouveau mot de passe.</p>')
+  parts.push('<div style="text-align:center;margin:28px 0"><a href="' + link + '" style="display:inline-block;padding:14px 32px;border-radius:10px;background:linear-gradient(135deg,#7c5cfc,#e040fb,#00d4ff);color:#fff;text-decoration:none;font-weight:600;font-size:14px">Reinitialiser mon mot de passe</a></div>')
+  parts.push('<p style="font-size:12px;color:#6b6d8a;text-align:center">Ce lien est valable 1 heure. Si vous n avez pas demande cette reinitialisation, ignorez cet email : votre mot de passe actuel reste inchange.</p>')
+  parts.push('</div>')
+  return parts.join('')
+}
+
 // ============================================
 // RATE LIMITING
 // ============================================
@@ -195,6 +237,30 @@ setInterval(() => {
     if (now - entry.start > WINDOW_MS) requestCounts.delete(ip)
   }
 }, WINDOW_MS)
+
+// Rate limiter plus strict specifique aux tentatives de connexion (anti brute-force)
+const loginAttempts = new Map()
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
+const MAX_LOGIN_ATTEMPTS = 8
+
+function loginRateLimiter(req, res, next) {
+  const ip = getClientIp(req)
+  const now = Date.now()
+  const entry = loginAttempts.get(ip) || { count: 0, start: now }
+  if (now - entry.start > LOGIN_WINDOW_MS) { entry.count = 0; entry.start = now }
+  entry.count++
+  loginAttempts.set(ip, entry)
+  if (entry.count > MAX_LOGIN_ATTEMPTS) {
+    return res.status(429).json({ error: 'Trop de tentatives de connexion. Reessayez dans 15 minutes.' })
+  }
+  next()
+}
+setInterval(() => {
+  const now = Date.now()
+  for (const [ip, entry] of loginAttempts) {
+    if (now - entry.start > LOGIN_WINDOW_MS) loginAttempts.delete(ip)
+  }
+}, LOGIN_WINDOW_MS)
 
 // ============================================
 // SECURITY HEADERS
@@ -287,11 +353,14 @@ function sanitizeMessage(msg) {
 // ============================================
 // ROUTE: /login (envoi d'un lien de connexion)
 // ============================================
-app.post('/login', rateLimiter, async (req, res) => {
-  const { email } = req.body
+app.post('/login', loginRateLimiter, async (req, res) => {
+  const { email, password } = req.body
 
   if (!email || !isValidEmailFormat(email)) {
     return res.status(400).json({ error: 'Adresse email invalide.' })
+  }
+  if (!password || typeof password !== 'string') {
+    return res.status(400).json({ error: 'Mot de passe requis.' })
   }
 
   const database = await getDb()
@@ -304,26 +373,107 @@ app.post('/login', rateLimiter, async (req, res) => {
   const users = database.collection('users')
   const existing = await users.findOne({ email: emailLower })
 
-  if (!existing || !existing.verified) {
-    return res.status(404).json({ error: 'Aucun compte verifie trouve avec cet email. Creez un compte gratuit.' })
+  // Message volontairement generique (email inconnu ou mot de passe faux) pour ne pas reveler
+  // si un email existe en base
+  const genericError = 'Email ou mot de passe incorrect.'
+
+  if (!existing) {
+    return res.status(401).json({ error: genericError })
+  }
+  if (!existing.verified) {
+    return res.status(403).json({ error: 'Compte non verifie. Verifiez votre boite mail pour confirmer votre inscription.' })
+  }
+  if (!existing.passwordHash) {
+    return res.status(401).json({ error: 'Ce compte n a pas de mot de passe defini. Reinscrivez-vous.' })
   }
 
-  const token = signToken({ email: emailLower, type: 'verify' }, '1h')
-  const link = SITE_URL + '/verify?token=' + token
-  const sent = await sendEmail(email, 'Votre lien de connexion Vitosoli', verificationEmailHtml(link))
-
-  if (!sent && process.env.RESEND_API_KEY) {
-    return res.status(500).json({ error: 'Erreur lors de l envoi de l email. Reessayez.' })
+  const passwordOk = await verifyPassword(password, existing.passwordHash)
+  if (!passwordOk) {
+    return res.status(401).json({ error: genericError })
   }
 
-  res.json({ success: true, message: 'Un lien de connexion a ete envoye a votre adresse email.' })
+  await users.updateOne(
+    { email: emailLower },
+    { $set: { lastLogin: new Date() } }
+  )
+
+  const sessionToken = signToken({ email: emailLower, type: 'session' }, '30d')
+  res.json({ success: true, token: sessionToken })
+})
+
+// ============================================
+// ROUTE: /forgot-password (envoi du lien de reinitialisation)
+// ============================================
+app.post('/forgot-password', loginRateLimiter, async (req, res) => {
+  const { email } = req.body
+
+  if (!email || !isValidEmailFormat(email)) {
+    return res.status(400).json({ error: 'Adresse email invalide.' })
+  }
+
+  const database = await getDb()
+  const emailLower = email.toLowerCase()
+
+  // Reponse toujours identique, que le compte existe ou non,
+  // pour ne pas reveler si un email est enregistre
+  const genericMessage = 'Si un compte existe avec cet email, un lien de reinitialisation vient de lui etre envoye.'
+
+  if (!database) {
+    return res.json({ success: true, message: genericMessage })
+  }
+
+  const users = database.collection('users')
+  const existing = await users.findOne({ email: emailLower })
+
+  if (existing && existing.verified) {
+    const token = signToken({ email: emailLower, type: 'reset' }, '1h')
+    const link = SITE_URL + '/reset-password.html?token=' + token
+    await sendEmail(email, 'Reinitialisation de votre mot de passe Vitosoli', resetPasswordEmailHtml(link))
+  }
+
+  res.json({ success: true, message: genericMessage })
+})
+
+// ============================================
+// ROUTE: /reset-password (application du nouveau mot de passe)
+// ============================================
+app.post('/reset-password', rateLimiter, async (req, res) => {
+  const { token, password } = req.body
+
+  if (!isValidPassword(password)) {
+    return res.status(400).json({ error: 'Le mot de passe doit contenir entre 8 et 128 caracteres.' })
+  }
+
+  const payload = verifyToken(token)
+  if (!payload || payload.type !== 'reset') {
+    return res.status(400).json({ error: 'Lien invalide ou expire. Refaites une demande de reinitialisation.' })
+  }
+
+  const database = await getDb()
+  if (!database) {
+    return res.status(500).json({ error: 'Service temporairement indisponible. Reessayez plus tard.' })
+  }
+
+  const users = database.collection('users')
+  const existing = await users.findOne({ email: payload.email })
+  if (!existing) {
+    return res.status(400).json({ error: 'Compte introuvable.' })
+  }
+
+  const passwordHash = await hashPassword(password)
+  await users.updateOne(
+    { email: payload.email },
+    { $set: { passwordHash: passwordHash } }
+  )
+
+  res.json({ success: true, message: 'Mot de passe mis a jour. Vous pouvez maintenant vous connecter.' })
 })
 
 // ============================================
 // ROUTE: /register
 // ============================================
 app.post('/register', rateLimiter, async (req, res) => {
-  const { email, phone, consent } = req.body
+  const { email, phone, password, consent } = req.body
 
   if (!consent) {
     return res.status(400).json({ error: 'Vous devez accepter la politique de confidentialite.' })
@@ -333,6 +483,9 @@ app.post('/register', rateLimiter, async (req, res) => {
   }
   if (!phone || !isValidPhone(phone)) {
     return res.status(400).json({ error: 'Numero de telephone invalide.' })
+  }
+  if (!isValidPassword(password)) {
+    return res.status(400).json({ error: 'Le mot de passe doit contenir entre 8 et 128 caracteres.' })
   }
   if (isDisposableEmail(email)) {
     return res.status(400).json({ error: 'Les adresses email jetables ne sont pas acceptees.' })
@@ -352,11 +505,10 @@ app.post('/register', rateLimiter, async (req, res) => {
     const existing = await users.findOne({ email: emailLower })
 
     if (existing && existing.verified) {
-      const token = signToken({ email: emailLower, type: 'verify' }, '1h')
-      const link = SITE_URL + '/verify?token=' + token
-      await sendEmail(email, 'Votre lien de connexion Vitosoli', verificationEmailHtml(link))
-      return res.json({ success: true, message: 'Un lien de connexion a ete envoye a votre adresse email.' })
+      return res.status(409).json({ error: 'Un compte existe deja avec cet email. Connectez-vous depuis la page de connexion.' })
     }
+
+    const passwordHash = await hashPassword(password)
 
     await users.updateOne(
       { email: emailLower },
@@ -364,6 +516,7 @@ app.post('/register', rateLimiter, async (req, res) => {
         $set: {
           email: emailLower,
           phone: phone,
+          passwordHash: passwordHash,
           ip: ip,
           country: location.country,
           city: location.city,
@@ -385,7 +538,7 @@ app.post('/register', rateLimiter, async (req, res) => {
     return res.status(500).json({ error: 'Erreur lors de l envoi de l email. Reessayez.' })
   }
 
-  res.json({ success: true, message: 'Verifiez votre boite mail pour confirmer votre compte.' })
+  res.json({ success: true, message: 'Verifiez votre boite mail pour confirmer votre compte, puis connectez-vous avec votre email et mot de passe.' })
 })
 
 // ============================================
@@ -403,12 +556,11 @@ app.get('/verify', async (req, res) => {
   if (database) {
     await database.collection('users').updateOne(
       { email: payload.email },
-      { $set: { verified: true, lastLogin: new Date() } }
+      { $set: { verified: true } }
     )
   }
 
-  const sessionToken = signToken({ email: payload.email, type: 'session' }, '30d')
-  res.redirect('/chat-ia.html?auth=' + sessionToken)
+  res.redirect('/login.html?verified=1')
 })
 
 function verifyPage(success, message) {
