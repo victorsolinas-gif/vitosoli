@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken'
 import dns from 'dns'
 import { promisify } from 'util'
 import crypto from 'crypto'
+import { calculateNatalChart } from './natalChart.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -778,6 +779,104 @@ app.post('/chat', rateLimiter, async (req, res) => {
 // ============================================
 // ROUTE: /vision
 // ============================================
+// ============================================
+// ROUTE: /astro/geocode
+// ============================================
+app.get('/astro/geocode', rateLimiter, async (req, res) => {
+  const q = req.query.q
+  if (!q || typeof q !== 'string' || q.length < 3) {
+    return res.json({ results: [] })
+  }
+
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=6&q=' + encodeURIComponent(q)
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'Vitosoli/1.0 (https://vitosoli.com)' }
+    })
+    const data = await response.json()
+
+    const results = (Array.isArray(data) ? data : []).map(item => {
+      const lat = parseFloat(item.lat)
+      const lon = parseFloat(item.lon)
+      return {
+        name: item.display_name.split(',').slice(0, 2).join(','),
+        detail: item.display_name,
+        lat: lat,
+        lon: lon,
+        timezoneOffset: estimateTimezoneOffset(lon)
+      }
+    })
+
+    res.json({ results: results })
+  } catch (err) {
+    console.error('Erreur geocode:', err.message)
+    res.json({ results: [] })
+  }
+})
+
+// Estimation grossiere du fuseau horaire a partir de la longitude
+function estimateTimezoneOffset(longitude) {
+  return Math.round(longitude / 15)
+}
+
+// ============================================
+// ROUTE: /astro/chart
+// ============================================
+app.post('/astro/chart', rateLimiter, async (req, res) => {
+  const { year, month, day, hour, minute, latitude, longitude, timezoneOffset } = req.body
+
+  if (
+    typeof year !== 'number' || typeof month !== 'number' || typeof day !== 'number' ||
+    typeof hour !== 'number' || typeof minute !== 'number' ||
+    typeof latitude !== 'number' || typeof longitude !== 'number'
+  ) {
+    return res.status(400).json({ error: 'Donnees de naissance invalides.' })
+  }
+
+  if (year < 1900 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) {
+    return res.status(400).json({ error: 'Date de naissance hors limites (1900-2100).' })
+  }
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return res.status(400).json({ error: 'Heure de naissance invalide.' })
+  }
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    return res.status(400).json({ error: 'Coordonnees geographiques invalides.' })
+  }
+
+  try {
+    const offset = typeof timezoneOffset === 'number' ? timezoneOffset : 0
+    let utcHour = hour - offset
+    let utcDay = day
+    let utcMonth = month
+    let utcYear = year
+
+    if (utcHour < 0) { utcHour += 24; utcDay -= 1 }
+    if (utcHour >= 24) { utcHour -= 24; utcDay += 1 }
+    if (utcDay < 1) {
+      utcMonth -= 1
+      if (utcMonth < 1) { utcMonth = 12; utcYear -= 1 }
+      const daysInMonth = new Date(utcYear, utcMonth, 0).getDate()
+      utcDay = daysInMonth
+    }
+    const daysInCurrentMonth = new Date(utcYear, utcMonth, 0).getDate()
+    if (utcDay > daysInCurrentMonth) {
+      utcDay = 1
+      utcMonth += 1
+      if (utcMonth > 12) { utcMonth = 1; utcYear += 1 }
+    }
+
+    const chart = calculateNatalChart({
+      year: utcYear, month: utcMonth, day: utcDay, hour: utcHour, minute: minute,
+      latitude: latitude, longitude: longitude
+    })
+
+    res.json({ chart: chart })
+  } catch (err) {
+    console.error('Erreur calcul carte astrale:', err.message)
+    res.status(500).json({ error: 'Erreur lors du calcul de la carte astrale.' })
+  }
+})
+
 app.post('/vision', rateLimiter, async (req, res) => {
   const { image, mimeType } = req.body
 
