@@ -96,11 +96,20 @@
     padding: 11px 12px; border-radius: 9px;
     font-size: 13px; color: var(--muted);
     cursor: pointer; transition: background .15s, color .15s;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     -webkit-tap-highlight-color: transparent;
   }
   .chat-item:active, .chat-item.active { background: var(--surface2); color: var(--text); }
   .chat-item svg { flex-shrink: 0; }
+  .chat-item-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .chat-item-delete {
+    flex-shrink: 0; width: 22px; height: 22px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); opacity: 0; transition: opacity .15s, color .15s, background .15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .chat-item:hover .chat-item-delete, .chat-item:active .chat-item-delete { opacity: 1; }
+  .chat-item-delete:hover { color: #ff6b6b; background: rgba(255,107,107,.1); }
+  @media (max-width: 640px){ .chat-item-delete { opacity: .6; } }
 
   .sidebar-bottom {
     border-top: 1px solid var(--border);
@@ -425,32 +434,10 @@
       Nouvelle conversation
     </button>
 
-    <div class="section-label">Récentes</div>
-    <div class="chat-list">
-      <div class="chat-item active" onclick="closeSidebar()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Brainstorming projet IA
-      </div>
-      <div class="chat-item" onclick="closeSidebar()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Rédaction email client
-      </div>
-      <div class="chat-item" onclick="closeSidebar()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Analyse de données
-      </div>
-      <div class="chat-item" onclick="closeSidebar()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Code Python pour API
-      </div>
-      <div class="section-label">Cette semaine</div>
-      <div class="chat-item" onclick="closeSidebar()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Idées de contenu LinkedIn
-      </div>
-      <div class="chat-item" onclick="closeSidebar()">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Traduction EN → FR
+    <div class="section-label" id="chatListLabel" style="display:none">Conversations</div>
+    <div class="chat-list" id="chatList">
+      <div id="chatListEmpty" style="display:none;padding:16px 10px;font-size:12px;color:var(--muted);line-height:1.6">
+        Connectez-vous pour sauvegarder et retrouver vos conversations.
       </div>
     </div>
 
@@ -716,6 +703,7 @@ function fillInput(text){
 
 let conversationHistory = [];
 let isLoading = false;
+let currentConversationId = null; // id MongoDB de la conversation sauvegardee (null si nouvelle/non sauvegardee)
 
 const messagesEl = document.getElementById('messages');
 const chatMessagesEl = document.getElementById('chat-messages');
@@ -821,9 +809,11 @@ function fillPrompt(text) {
 
 function newChat() {
   conversationHistory = [];
+  currentConversationId = null;
   chatMessagesEl.innerHTML = '';
   welcomeEl.style.display = '';
   closeSidebar();
+  highlightActiveConversation();
 }
 
 function scrollToBottom() {
@@ -989,6 +979,7 @@ async function sendMessage() {
     addMessage('ai', reply);
     conversationHistory.push({ role: 'assistant', content: reply });
     if(data.quota) renderQuota(data.quota);
+    saveCurrentConversation(); // sauvegarde silencieuse si connecte
   } catch(err) {
     removeTyping();
     addMessage('ai', 'Une erreur est survenue. Vérifiez que le serveur est bien démarré.');
@@ -1014,6 +1005,7 @@ if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
     window.history.replaceState({}, document.title, window.location.pathname);
     updateUserUI();
     fetchQuota();
+    loadConversationList();
     setTimeout(() => {
       addMessage('ai', '✅ Votre compte a été confirmé avec succès ! Vous bénéficiez maintenant de 20 messages gratuits par mois, dont 3 fichiers (images/PDF).');
     }, 300);
@@ -1085,6 +1077,7 @@ document.addEventListener('click', (e) => {
 function logout(){
   localStorage.removeItem('vitosoli_token');
   conversationHistory = [];
+  currentConversationId = null;
   chatMessagesEl.innerHTML = '';
   welcomeEl.style.display = '';
   document.getElementById('userMenu').style.display = 'none';
@@ -1132,6 +1125,161 @@ async function fetchQuota(){
 
 // Charger le quota au demarrage de la page
 fetchQuota();
+
+// ── HISTORIQUE DES CONVERSATIONS (utilisateurs connectes uniquement) ──
+
+function isLoggedIn(){
+  return !!localStorage.getItem('vitosoli_token');
+}
+
+function authHeaders(){
+  const headers = { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('vitosoli_token');
+  if(token) headers['Authorization'] = 'Bearer ' + token;
+  return headers;
+}
+
+// Genere un titre court a partir du premier message utilisateur
+function generateTitleFromHistory(history){
+  const firstUserMsg = history.find(m => m.role === 'user');
+  if(!firstUserMsg) return 'Nouvelle conversation';
+  const text = typeof firstUserMsg.content === 'string'
+    ? firstUserMsg.content
+    : (Array.isArray(firstUserMsg.content) ? (firstUserMsg.content.find(b => b.type === 'text')?.text || 'Fichier joint') : 'Nouvelle conversation');
+  return text.slice(0, 60).trim() || 'Nouvelle conversation';
+}
+
+let saveDebounceTimer = null;
+
+function saveCurrentConversation(){
+  if(!isLoggedIn()) return; // pas de sauvegarde pour les invites
+  if(conversationHistory.length === 0) return;
+
+  // Debounce leger pour eviter les appels en rafale
+  clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = setTimeout(async () => {
+    try {
+      const title = generateTitleFromHistory(conversationHistory);
+      const res = await fetch('https://vitosoli.onrender.com/conversations', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          id: currentConversationId,
+          title: title,
+          messages: conversationHistory
+        })
+      });
+      const data = await res.json();
+      if(res.ok && data.id){
+        currentConversationId = data.id;
+        loadConversationList(); // rafraichit la sidebar (titre/ordre a jour)
+      }
+    } catch(err){
+      // Sauvegarde silencieuse : en cas d'echec on ne bloque pas l'UX
+    }
+  }, 400);
+}
+
+async function loadConversationList(){
+  const listEl = document.getElementById('chatList');
+  const labelEl = document.getElementById('chatListLabel');
+  const emptyEl = document.getElementById('chatListEmpty');
+
+  if(!isLoggedIn()){
+    labelEl.style.display = 'none';
+    listEl.innerHTML = '';
+    listEl.appendChild(emptyEl);
+    emptyEl.style.display = 'block';
+    return;
+  }
+
+  try {
+    const res = await fetch('https://vitosoli.onrender.com/conversations', { headers: authHeaders() });
+    const data = await res.json();
+    const conversations = data.conversations || [];
+
+    labelEl.style.display = conversations.length ? 'block' : 'none';
+
+    if(conversations.length === 0){
+      listEl.innerHTML = '';
+      listEl.appendChild(emptyEl);
+      emptyEl.textContent = 'Aucune conversation sauvegardée pour le moment.';
+      emptyEl.style.display = 'block';
+      return;
+    }
+
+    listEl.innerHTML = conversations.map(c => `
+      <div class="chat-item" data-id="${c.id}" onclick="openConversation('${c.id}')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="chat-item-title">${escapeAttr(c.title)}</span>
+        <span class="chat-item-delete" onclick="deleteConversation(event,'${c.id}')" title="Supprimer">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        </span>
+      </div>
+    `).join('');
+
+    highlightActiveConversation();
+  } catch(err){
+    // En cas d'echec reseau, laisser la sidebar telle quelle
+  }
+}
+
+function highlightActiveConversation(){
+  document.querySelectorAll('.chat-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === currentConversationId);
+  });
+}
+
+async function openConversation(id){
+  try {
+    const res = await fetch('https://vitosoli.onrender.com/conversations/' + id, { headers: authHeaders() });
+    const data = await res.json();
+    if(!res.ok || !data.conversation){
+      addMessage('ai', 'Impossible de charger cette conversation.');
+      return;
+    }
+
+    conversationHistory = data.conversation.messages || [];
+    currentConversationId = id;
+
+    chatMessagesEl.innerHTML = '';
+    welcomeEl.style.display = conversationHistory.length ? 'none' : '';
+
+    conversationHistory.forEach(m => {
+      const displayText = typeof m.content === 'string'
+        ? m.content
+        : (Array.isArray(m.content) ? (m.content.find(b => b.type === 'text')?.text || '📎 Fichier joint') : '');
+      addMessage(m.role === 'assistant' ? 'ai' : 'user', displayText);
+    });
+
+    highlightActiveConversation();
+    closeSidebar();
+  } catch(err){
+    addMessage('ai', 'Erreur lors du chargement de la conversation.');
+  }
+}
+
+async function deleteConversation(event, id){
+  event.stopPropagation(); // ne pas ouvrir la conversation en cliquant sur supprimer
+
+  try {
+    const res = await fetch('https://vitosoli.onrender.com/conversations/' + id, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+    if(res.ok){
+      if(currentConversationId === id){
+        newChat();
+      }
+      loadConversationList();
+    }
+  } catch(err){
+    // Silencieux
+  }
+}
+
+// Charger la liste des conversations au demarrage (apres un court delai pour laisser le token se poser si on vient de se connecter)
+loadConversationList();
 
 // ── GUEST LIMIT MODAL ──
 function showGuestLimitModal(message){
