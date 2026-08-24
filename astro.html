@@ -233,6 +233,13 @@ body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(4
   <div class="section-title">⚡ Aspects majeurs</div>
   <div class="aspects-grid" id="aspectsGrid"></div>
 
+  <div class="analysis-card" id="horoscopeCard">
+    <h3>🌞 Horoscope du jour</h3>
+    <div id="horoscopeContent">
+      <div class="analysis-loading"><span class="spinner" style="border-top-color:#ffd166"></span> Génération de votre horoscope du jour...</div>
+    </div>
+  </div>
+
   <div class="analysis-card">
     <h3>✨ Analyse complète</h3>
     <div id="analysisContent">
@@ -351,6 +358,7 @@ async function generateChart(){
     window.scrollTo(0,0);
 
     requestAnalysis(data.chart, selectedPlace.name, date, time);
+    requestHoroscope(data.chart);
 
   } catch(err){
     showError('Erreur de connexion au serveur. Réessayez.');
@@ -596,6 +604,57 @@ async function requestAnalysis(chart, placeName, date, time){
     content.innerHTML = `<div class="analysis-text">${escapeHtml(data.reply)}</div>`;
   } catch(err){
     document.getElementById('analysisContent').innerHTML = '<p style="color:#ff6b6b;font-size:13px">Erreur de connexion. Réessayez plus tard.</p>';
+  }
+}
+
+// ── HOROSCOPE DU JOUR ──
+async function requestHoroscope(chart){
+  const sunSign = chart.planets.sun.sign;
+  const today = new Date();
+  const todayStr = today.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  const systemPrompt = "Tu es Vitosoli, un astrologue expert bienveillant. Redige un horoscope du jour court, chaleureux et concret en francais pour le signe solaire donne, a la date indiquee. Structure en 3 courtes sections avec emoji : 💫 Ambiance du jour, 💼 Travail & Projets, ❤️ Coeur & Relations. Reste positif mais realiste, evite les generalites vagues, sois specifique et actionnable. Ne mentionne jamais que tu es une IA ou que ceci est genere automatiquement. Maximum 150 mots au total.";
+
+  const userMessage = `Horoscope du jour pour le signe ${sunSign}, date du jour : ${todayStr}.`;
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    const token = localStorage.getItem('vitosoli_token');
+    if(token) headers['Authorization'] = 'Bearer ' + token;
+
+    const res = await fetch('https://vitosoli.onrender.com/chat', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: userMessage }],
+        system: systemPrompt
+      })
+    });
+
+    const data = await res.json();
+    const content = document.getElementById('horoscopeContent');
+
+    if(data.error === 'guest_limit'){
+      content.innerHTML = `
+        <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:16px">🔒 ${data.message}</p>
+        <a href="register.html?reason=guest_limit" style="display:block;text-align:center;padding:13px;border-radius:10px;background:var(--grad);color:#fff;font-weight:600;font-size:14px;text-decoration:none">Créer un compte gratuit</a>
+      `;
+      return;
+    }
+
+    if(data.error){
+      content.innerHTML = '<p style="color:#ff6b6b;font-size:13px">Horoscope indisponible pour le moment.</p>';
+      return;
+    }
+
+    content.innerHTML = `
+      <div style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:100px;background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.25);font-size:11px;color:#ffd166;font-weight:600;margin-bottom:12px">
+        ${sunSign} · ${todayStr}
+      </div>
+      <div class="analysis-text">${escapeHtml(data.reply)}</div>
+    `;
+  } catch(err){
+    document.getElementById('horoscopeContent').innerHTML = '<p style="color:#ff6b6b;font-size:13px">Erreur de connexion. Réessayez plus tard.</p>';
   }
 }
 
