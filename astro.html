@@ -307,7 +307,7 @@ async function generateChart(){
   errorBox.style.display = 'none';
 
   if(!date || !time){
-    showError('Merci de remplir la date et l\\'heure de naissance.');
+    showError('Merci de remplir la date et l\'heure de naissance.');
     return;
   }
   if(!selectedPlace){
@@ -589,7 +589,7 @@ async function requestAnalysis(chart, placeName, date, time){
     }
 
     if(data.error){
-      content.innerHTML = '<p style="color:#ff6b6b;font-size:13px">Une erreur est survenue lors de l\\'analyse. Réessayez plus tard.</p>';
+      content.innerHTML = '<p style="color:#ff6b6b;font-size:13px">Une erreur est survenue lors de l\'analyse. Réessayez plus tard.</p>';
       return;
     }
 
