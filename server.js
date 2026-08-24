@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
 import cors from 'cors'
-import { MongoClient } from 'mongodb'
+import { MongoClient, ObjectId } from 'mongodb'
 import jwt from 'jsonwebtoken'
 import dns from 'dns'
 import { promisify } from 'util'
@@ -826,6 +826,188 @@ app.post('/vision', rateLimiter, async (req, res) => {
     console.error('Erreur Vision:', error.message)
     res.status(500).json({ error: 'Erreur analyse image.' })
   }
+})
+
+// ============================================
+// AUTH MIDDLEWARE (pour routes necessitant une session valide)
+// ============================================
+function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization
+  const token = (authHeader && authHeader.indexOf('Bearer ') === 0) ? authHeader.slice(7) : null
+  const payload = token ? verifyToken(token) : null
+  if (!payload || payload.type !== 'session') {
+    return res.status(401).json({ error: 'Authentification requise.' })
+  }
+  req.userEmail = payload.email
+  next()
+}
+
+// Limite raisonnable pour eviter qu'un compte accumule trop de donnees
+const MAX_CONVERSATIONS_PER_USER = 200
+const MAX_MESSAGES_PER_CONVERSATION = 200
+
+function sanitizeConversationTitle(title) {
+  if (typeof title !== 'string') return 'Nouvelle conversation'
+  return title.slice(0, 100).trim() || 'Nouvelle conversation'
+}
+
+// ============================================
+// ROUTE: GET /conversations (liste des conversations de l'utilisateur)
+// ============================================
+app.get('/conversations', rateLimiter, requireAuth, async (req, res) => {
+  const database = await getDb()
+  if (!database) return res.json({ conversations: [] })
+
+  const conversations = await database.collection('conversations')
+    .find({ userEmail: req.userEmail })
+    .project({ title: 1, updatedAt: 1, createdAt: 1 }) // pas les messages, juste la liste
+    .sort({ updatedAt: -1 })
+    .limit(MAX_CONVERSATIONS_PER_USER)
+    .toArray()
+
+  res.json({
+    conversations: conversations.map(c => ({
+      id: c._id.toString(),
+      title: c.title,
+      updatedAt: c.updatedAt,
+      createdAt: c.createdAt
+    }))
+  })
+})
+
+// ============================================
+// ROUTE: GET /conversations/:id (recupere une conversation complete)
+// ============================================
+app.get('/conversations/:id', rateLimiter, requireAuth, async (req, res) => {
+  const database = await getDb()
+  if (!database) return res.status(404).json({ error: 'Conversation introuvable.' })
+
+  let objectId
+  try {
+    objectId = new ObjectId(req.params.id)
+  } catch {
+    return res.status(400).json({ error: 'Identifiant invalide.' })
+  }
+
+  const conversation = await database.collection('conversations').findOne({
+    _id: objectId,
+    userEmail: req.userEmail // s'assure que l'utilisateur ne peut lire que ses propres conversations
+  })
+
+  if (!conversation) {
+    return res.status(404).json({ error: 'Conversation introuvable.' })
+  }
+
+  res.json({
+    conversation: {
+      id: conversation._id.toString(),
+      title: conversation.title,
+      messages: conversation.messages || [],
+      updatedAt: conversation.updatedAt,
+      createdAt: conversation.createdAt
+    }
+  })
+})
+
+// ============================================
+// ROUTE: POST /conversations (cree ou met a jour une conversation)
+// ============================================
+app.post('/conversations', rateLimiter, requireAuth, async (req, res) => {
+  const { id, title, messages } = req.body
+
+  if (!Array.isArray(messages)) {
+    return res.status(400).json({ error: 'Format de messages invalide.' })
+  }
+  if (messages.length > MAX_MESSAGES_PER_CONVERSATION) {
+    return res.status(400).json({ error: 'Conversation trop longue pour etre sauvegardee.' })
+  }
+
+  const database = await getDb()
+  if (!database) return res.status(500).json({ error: 'Service temporairement indisponible.' })
+
+  const conversations = database.collection('conversations')
+  const cleanTitle = sanitizeConversationTitle(title)
+  const now = new Date()
+
+  // Nettoyage leger des messages avant stockage (on ne stocke pas les gros fichiers base64
+  // pour eviter de saturer la base : on remplace les blocs image/document par un marqueur)
+  const storedMessages = messages.map(m => {
+    if (Array.isArray(m.content)) {
+      return {
+        role: m.role,
+        content: m.content.map(block => {
+          if (block.type === 'image' || block.type === 'document') {
+            return { type: block.type, note: '[fichier joint non sauvegarde]' }
+          }
+          return block
+        })
+      }
+    }
+    return { role: m.role, content: typeof m.content === 'string' ? m.content.slice(0, 8000) : '' }
+  })
+
+  if (id) {
+    // Mise a jour d'une conversation existante
+    let objectId
+    try {
+      objectId = new ObjectId(id)
+    } catch {
+      return res.status(400).json({ error: 'Identifiant invalide.' })
+    }
+
+    const result = await conversations.updateOne(
+      { _id: objectId, userEmail: req.userEmail },
+      { $set: { title: cleanTitle, messages: storedMessages, updatedAt: now } }
+    )
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Conversation introuvable.' })
+    }
+
+    return res.json({ success: true, id: id })
+  }
+
+  // Verifier le nombre de conversations existantes avant d'en creer une nouvelle
+  const count = await conversations.countDocuments({ userEmail: req.userEmail })
+  if (count >= MAX_CONVERSATIONS_PER_USER) {
+    return res.status(400).json({ error: 'Nombre maximum de conversations sauvegardees atteint.' })
+  }
+
+  const insertResult = await conversations.insertOne({
+    userEmail: req.userEmail,
+    title: cleanTitle,
+    messages: storedMessages,
+    createdAt: now,
+    updatedAt: now
+  })
+
+  res.json({ success: true, id: insertResult.insertedId.toString() })
+})
+
+// ============================================
+// ROUTE: DELETE /conversations/:id
+// ============================================
+app.delete('/conversations/:id', rateLimiter, requireAuth, async (req, res) => {
+  const database = await getDb()
+  if (!database) return res.status(500).json({ error: 'Service temporairement indisponible.' })
+
+  let objectId
+  try {
+    objectId = new ObjectId(req.params.id)
+  } catch {
+    return res.status(400).json({ error: 'Identifiant invalide.' })
+  }
+
+  const result = await database.collection('conversations').deleteOne({
+    _id: objectId,
+    userEmail: req.userEmail
+  })
+
+  if (result.deletedCount === 0) {
+    return res.status(404).json({ error: 'Conversation introuvable.' })
+  }
+
+  res.json({ success: true })
 })
 
 // ============================================
