@@ -126,6 +126,16 @@ h1{font-family:'Syne',sans-serif;font-weight:800;font-size:24px;text-align:cente
       <input type="tel" id="phone" placeholder="+33 6 12 34 56 78" required autocomplete="tel">
     </div>
 
+    <div class="field">
+      <label for="password">Mot de passe</label>
+      <input type="password" id="password" placeholder="8 caractères minimum" required autocomplete="new-password" minlength="8">
+    </div>
+
+    <div class="field">
+      <label for="passwordConfirm">Confirmer le mot de passe</label>
+      <input type="password" id="passwordConfirm" placeholder="Retapez votre mot de passe" required autocomplete="new-password" minlength="8">
+    </div>
+
     <div class="consent">
       <input type="checkbox" id="consent" required>
       <label for="consent">
@@ -138,6 +148,7 @@ h1{font-family:'Syne',sans-serif;font-weight:800;font-size:24px;text-align:cente
     <div class="message" id="msgBox"></div>
   </form>
 
+  <a href="login.html" class="back-link">Déjà un compte ? Se connecter</a>
   <a href="chat-ia.html" class="back-link">← Retour à Vitosoli</a>
 </div>
 
@@ -157,6 +168,8 @@ form.addEventListener('submit', async (e) => {
 
   const email = document.getElementById('email').value.trim();
   const phone = document.getElementById('phone').value.trim();
+  const password = document.getElementById('password').value;
+  const passwordConfirm = document.getElementById('passwordConfirm').value;
   const consent = document.getElementById('consent').checked;
 
   msgBox.className = 'message';
@@ -164,6 +177,14 @@ form.addEventListener('submit', async (e) => {
 
   if(!consent){
     showMessage('error', 'Vous devez accepter la politique de confidentialité.');
+    return;
+  }
+  if(password.length < 8){
+    showMessage('error', 'Le mot de passe doit contenir au moins 8 caractères.');
+    return;
+  }
+  if(password !== passwordConfirm){
+    showMessage('error', 'Les mots de passe ne correspondent pas.');
     return;
   }
 
@@ -174,7 +195,7 @@ form.addEventListener('submit', async (e) => {
     const response = await fetch('https://vitosoli.onrender.com/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, phone, consent })
+      body: JSON.stringify({ email, phone, password, consent })
     });
 
     const data = await response.json();
@@ -183,6 +204,8 @@ form.addEventListener('submit', async (e) => {
       showMessage('success', '✅ ' + data.message);
       form.querySelector('input[type=email]').disabled = true;
       form.querySelector('input[type=tel]').disabled = true;
+      document.getElementById('password').disabled = true;
+      document.getElementById('passwordConfirm').disabled = true;
       document.getElementById('consent').disabled = true;
       submitBtn.style.display = 'none';
     } else {
