@@ -968,7 +968,7 @@ async function sendMessage() {
 
     if (data.error === 'guest_limit') {
       conversationHistory.pop();
-      showGuestLimitModal(data.message);
+      showGuestLimitModal(data.message, data.canBuy);
       isLoading = false;
       sendBtn.disabled = false;
       fetchQuota(); // rafraichir le badge (probablement a 0)
@@ -1283,7 +1283,7 @@ async function deleteConversation(event, id){
 loadConversationList();
 
 // ── GUEST LIMIT MODAL ──
-function showGuestLimitModal(message){
+function showGuestLimitModal(message, canBuy){
   const overlay = document.createElement('div');
   overlay.id = 'guestLimitOverlay';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px';
@@ -1291,10 +1291,13 @@ function showGuestLimitModal(message){
   const box = document.createElement('div');
   box.style.cssText = 'max-width:380px;width:100%;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:32px 28px;text-align:center';
 
+  const ctaHref = canBuy ? 'upgrade.html' : 'register.html?reason=guest_limit';
+  const ctaText = canBuy ? 'Acheter un pack de messages' : lang.limitBtn;
+
   box.innerHTML = '<div style="width:56px;height:56px;border-radius:16px;background:var(--grad);margin:0 auto 18px;display:flex;align-items:center;justify-content:center;font-size:24px">🔒</div>' +
     '<h2 style="font-size:18px;font-weight:700;margin-bottom:10px;color:#a78bfa">' + lang.limitTitle + '</h2>' +
     '<p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:24px">' + message + '</p>' +
-    '<a href="register.html?reason=guest_limit" style="display:block;padding:13px;border-radius:10px;background:var(--grad);color:#fff;font-weight:600;font-size:14px;text-decoration:none;margin-bottom:10px">' + lang.limitBtn + '</a>' +
+    '<a href="' + ctaHref + '" style="display:block;padding:13px;border-radius:10px;background:var(--grad);color:#fff;font-weight:600;font-size:14px;text-decoration:none;margin-bottom:10px">' + ctaText + '</a>' +
     '<button onclick="removeGuestLimitModal()" style="width:100%;padding:12px;border-radius:10px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:13px;cursor:pointer;font-family:\'Inter\',sans-serif">' + lang.limitLater + '</button>';
 
   overlay.appendChild(box);
