@@ -9,6 +9,7 @@ import dns from 'dns'
 import { promisify } from 'util'
 import crypto from 'crypto'
 import { calculateNatalChart } from './natalChart.js'
+import Stripe from 'stripe'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const app = express()
@@ -18,6 +19,14 @@ const resolveMx = promisify(dns.resolveMx)
 const JWT_SECRET = process.env.JWT_SECRET || 'vitosoli-dev-secret-change-me'
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'changeme'
 const SITE_URL = process.env.SITE_URL || 'https://vitosoli.com'
+
+// ── STRIPE ──
+const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null
+const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID || ''
+const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''
+if (!stripe) {
+  console.warn('STRIPE_SECRET_KEY non definie - paiements desactives')
+}
 
 // ============================================
 // MONGODB
@@ -295,6 +304,71 @@ app.use(cors({
 }))
 
 app.use(securityHeaders)
+
+// ============================================
+// ROUTE: POST /webhook/stripe
+// IMPORTANT: doit utiliser express.raw() et etre declaree AVANT express.json()
+// global, car Stripe verifie la signature sur le corps brut de la requete.
+// ============================================
+app.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!stripe || !STRIPE_WEBHOOK_SECRET) {
+    return res.status(503).send('Stripe non configure.')
+  }
+
+  const signature = req.headers['stripe-signature']
+  let event
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, signature, STRIPE_WEBHOOK_SECRET)
+  } catch (err) {
+    console.error('Signature webhook Stripe invalide:', err.message)
+    return res.status(400).send('Signature invalide.')
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object
+    const email = session.customer_details && session.customer_details.email
+      ? session.customer_details.email.toLowerCase()
+      : (session.metadata && session.metadata.email ? session.metadata.email.toLowerCase() : null)
+
+    if (email) {
+      const database = await getDb()
+      if (database) {
+        const users = database.collection('users')
+        const existing = await users.findOne({ email })
+
+        if (existing) {
+          // Ajoute le pack achete au solde existant (cumulable)
+          await users.updateOne(
+            { email },
+            {
+              $inc: {
+                paidMsgBalance: PAID_MSG_LIMIT,
+                paidFileBalance: PAID_FILE_LIMIT
+              },
+              $push: {
+                purchases: {
+                  sessionId: session.id,
+                  amount: session.amount_total,
+                  currency: session.currency,
+                  purchasedAt: new Date()
+                }
+              }
+            }
+          )
+          console.log('Paiement confirme pour ' + email + ' - pack ajoute')
+        } else {
+          console.warn('Paiement recu pour un email inconnu: ' + email)
+        }
+      }
+    } else {
+      console.warn('Webhook Stripe recu sans email identifiable, session: ' + session.id)
+    }
+  }
+
+  res.json({ received: true })
+})
+
 app.use(express.json({ limit: '10mb' }))
 app.use(express.static(__dirname))
 
@@ -663,67 +737,89 @@ app.post('/chat', rateLimiter, async (req, res) => {
     }
   }
 
-  // ── UTILISATEUR INSCRIT : 20 messages/mois, 3 fichiers inclus (cout 6 messages/fichier) ──
+  // ── UTILISATEUR INSCRIT : quota gratuit mensuel + solde paye cumulable ──
   if (isAuthenticated && database) {
     const users = database.collection('users')
     const user = await users.findOne({ email: payload.email })
 
     if (user) {
-      // Reset mensuel du quota si on a change de mois
+      // Reset mensuel du quota GRATUIT uniquement (le solde paye ne se reinitialise jamais, il est cumulable et n'expire pas)
       const now = new Date()
       const lastReset = user.quotaResetAt ? new Date(user.quotaResetAt) : null
       const needsReset = !lastReset || lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear()
 
       let msgUsed = needsReset ? 0 : (user.msgUsed || 0)
       let fileUsed = needsReset ? 0 : (user.fileUsed || 0)
+      let paidMsgBalance = user.paidMsgBalance || 0
+      let paidFileBalance = user.paidFileBalance || 0
 
-      // TODO: quand Stripe sera integre, verifier ici user.plan === 'paid' pour appliquer PAID_MSG_LIMIT / PAID_FILE_LIMIT / PAID_FILE_COST a la place
-      const msgLimit = FREE_MSG_LIMIT
-      const fileLimit = FREE_FILE_LIMIT
-      const fileCost = FREE_FILE_COST
+      const freeMsgLeft = Math.max(0, FREE_MSG_LIMIT - msgUsed)
+      const freeFileLeft = Math.max(0, FREE_FILE_LIMIT - fileUsed)
+
+      const fileCostFree = FREE_FILE_COST
+      const fileCostPaid = PAID_FILE_COST
+
+      // Determine si la requete peut etre satisfaite (gratuit d'abord, solde paye ensuite)
+      let usesPaidBalance = false
 
       if (hasAttachment) {
-        if (fileUsed >= fileLimit) {
+        const canUseFree = freeFileLeft > 0 && freeMsgLeft >= fileCostFree
+        const canUsePaid = paidFileBalance > 0 && paidMsgBalance >= fileCostPaid
+
+        if (!canUseFree && !canUsePaid) {
           return res.status(403).json({
             error: 'guest_limit',
-            message: 'Vous avez atteint la limite de ' + fileLimit + ' fichiers (images/PDF) inclus dans votre forfait gratuit ce mois-ci.'
+            message: 'Vous avez atteint votre limite de fichiers ce mois-ci. Achetez un pack de messages pour continuer.',
+            canBuy: true
           })
         }
-        if (msgUsed + fileCost > msgLimit) {
-          return res.status(403).json({
-            error: 'guest_limit',
-            message: 'Votre quota de messages mensuel ne permet plus d\'envoyer de fichier ce mois-ci.'
-          })
-        }
+        usesPaidBalance = !canUseFree
       } else {
-        if (msgUsed >= msgLimit) {
+        const canUseFree = freeMsgLeft > 0
+        const canUsePaid = paidMsgBalance > 0
+
+        if (!canUseFree && !canUsePaid) {
           return res.status(403).json({
             error: 'guest_limit',
-            message: 'Vous avez atteint votre limite de ' + msgLimit + ' messages gratuits ce mois-ci.'
+            message: 'Vous avez atteint votre limite de messages gratuits ce mois-ci. Achetez un pack de messages pour continuer.',
+            canBuy: true
           })
         }
+        usesPaidBalance = !canUseFree
       }
 
-      const newMsgUsed = msgUsed + (hasAttachment ? fileCost : 1)
-      const newFileUsed = fileUsed + (hasAttachment ? 1 : 0)
+      const updateFields = { quotaResetAt: needsReset ? now : (user.quotaResetAt || now) }
+      const incFields = {}
 
-      await users.updateOne(
-        { email: payload.email },
-        {
-          $set: {
-            quotaResetAt: needsReset ? now : (user.quotaResetAt || now),
-            msgUsed: newMsgUsed,
-            fileUsed: newFileUsed
-          }
-        }
-      )
+      if (usesPaidBalance) {
+        incFields.paidMsgBalance = -(hasAttachment ? fileCostPaid : 1)
+        if (hasAttachment) incFields.paidFileBalance = -1
+        // msgUsed/fileUsed du quota gratuit restent inchanges (on ne consomme pas ce qu'il n'y a plus)
+        updateFields.msgUsed = msgUsed
+        updateFields.fileUsed = fileUsed
+      } else {
+        updateFields.msgUsed = msgUsed + (hasAttachment ? fileCostFree : 1)
+        updateFields.fileUsed = fileUsed + (hasAttachment ? 1 : 0)
+      }
+
+      const updateOps = { $set: updateFields }
+      if (Object.keys(incFields).length > 0) updateOps.$inc = incFields
+
+      await users.updateOne({ email: payload.email }, updateOps)
+
+      const finalMsgUsed = updateFields.msgUsed
+      const finalFileUsed = updateFields.fileUsed
+      const finalPaidMsg = paidMsgBalance + (incFields.paidMsgBalance || 0)
+      const finalPaidFile = paidFileBalance + (incFields.paidFileBalance || 0)
 
       quotaInfo = {
-        plan: 'free',
-        messagesRemaining: Math.max(0, msgLimit - newMsgUsed),
-        messagesLimit: msgLimit,
-        filesRemaining: Math.max(0, fileLimit - newFileUsed),
-        filesLimit: fileLimit
+        plan: (finalPaidMsg > 0 || finalPaidFile > 0) ? 'free+paid' : 'free',
+        messagesRemaining: Math.max(0, FREE_MSG_LIMIT - finalMsgUsed) + finalPaidMsg,
+        messagesLimit: FREE_MSG_LIMIT,
+        filesRemaining: Math.max(0, FREE_FILE_LIMIT - finalFileUsed) + finalPaidFile,
+        filesLimit: FREE_FILE_LIMIT,
+        paidMsgBalance: finalPaidMsg,
+        paidFileBalance: finalPaidFile
       }
     }
   }
@@ -949,6 +1045,31 @@ function sanitizeConversationTitle(title) {
   if (typeof title !== 'string') return 'Nouvelle conversation'
   return title.slice(0, 100).trim() || 'Nouvelle conversation'
 }
+
+// ============================================
+// ROUTE: POST /create-checkout-session
+// ============================================
+app.post('/create-checkout-session', rateLimiter, requireAuth, async (req, res) => {
+  if (!stripe || !STRIPE_PRICE_ID) {
+    return res.status(503).json({ error: 'Le paiement n est pas disponible pour le moment.' })
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
+      customer_email: req.userEmail,
+      metadata: { email: req.userEmail },
+      success_url: SITE_URL + '/upgrade.html?success=1',
+      cancel_url: SITE_URL + '/upgrade.html?canceled=1'
+    })
+
+    res.json({ url: session.url })
+  } catch (err) {
+    console.error('Erreur creation session Stripe:', err.message)
+    res.status(500).json({ error: 'Erreur lors de la creation du paiement. Reessayez.' })
+  }
+})
 
 // ============================================
 // ROUTE: GET /conversations (liste des conversations de l'utilisateur)
@@ -1190,14 +1311,18 @@ app.get('/quota', rateLimiter, async (req, res) => {
   const needsReset = !lastReset || lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear()
   const msgUsed = needsReset ? 0 : (user.msgUsed || 0)
   const fileUsed = needsReset ? 0 : (user.fileUsed || 0)
+  const paidMsgBalance = user.paidMsgBalance || 0
+  const paidFileBalance = user.paidFileBalance || 0
 
   res.json({
     quota: {
-      plan: 'free',
-      messagesRemaining: Math.max(0, FREE_MSG_LIMIT - msgUsed),
+      plan: (paidMsgBalance > 0 || paidFileBalance > 0) ? 'free+paid' : 'free',
+      messagesRemaining: Math.max(0, FREE_MSG_LIMIT - msgUsed) + paidMsgBalance,
       messagesLimit: FREE_MSG_LIMIT,
-      filesRemaining: Math.max(0, FREE_FILE_LIMIT - fileUsed),
-      filesLimit: FREE_FILE_LIMIT
+      filesRemaining: Math.max(0, FREE_FILE_LIMIT - fileUsed) + paidFileBalance,
+      filesLimit: FREE_FILE_LIMIT,
+      paidMsgBalance: paidMsgBalance,
+      paidFileBalance: paidFileBalance
     }
   })
 })
