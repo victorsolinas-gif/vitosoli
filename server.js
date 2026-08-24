@@ -589,7 +589,7 @@ const FREE_FILE_LIMIT = 3     // fichiers inclus dans les 20 messages
 const FREE_FILE_COST = 6      // "cout" en messages d'un fichier pour un inscrit gratuit (3 fichiers x 6 = 18, laisse 2 messages texte)
 
 const PAID_MSG_LIMIT = 300    // messages du forfait payant (a venir avec Stripe)
-const PAID_FILE_LIMIT = 30    // fichiers inclus dans le forfait payant
+const PAID_FILE_LIMIT = 20    // fichiers inclus dans le forfait payant (300/15=20, coherent avec PAID_FILE_COST)
 const PAID_FILE_COST = 15     // "cout" en messages d'un fichier pour le forfait payant
 
 app.post('/chat', rateLimiter, async (req, res) => {
@@ -1212,6 +1212,30 @@ app.use((req, res) => res.status(404).json({ error: 'Route introuvable' }))
 process.on('unhandledRejection', (reason) => console.error('Erreur non geree:', reason))
 
 // ============================================
+// PURGE AUTOMATIQUE DES VIEILLES CONVERSATIONS
+// Supprime les conversations non mises a jour depuis plus de 2 mois,
+// pour limiter la croissance du stockage MongoDB (plan gratuit 512 MB)
+// ============================================
+const CONVERSATION_RETENTION_MS = 60 * 24 * 60 * 60 * 1000 // ~2 mois (60 jours)
+
+async function purgeOldConversations() {
+  const database = await getDb()
+  if (!database) return
+
+  try {
+    const cutoff = new Date(Date.now() - CONVERSATION_RETENTION_MS)
+    const result = await database.collection('conversations').deleteMany({
+      updatedAt: { $lt: cutoff }
+    })
+    if (result.deletedCount > 0) {
+      console.log('Purge conversations : ' + result.deletedCount + ' conversation(s) de plus de 2 mois supprimee(s)')
+    }
+  } catch (err) {
+    console.error('Erreur purge conversations:', err.message)
+  }
+}
+
+// ============================================
 // START
 // ============================================
 getDb().then(() => {
@@ -1220,4 +1244,8 @@ getDb().then(() => {
     console.log('Securite : Rate limiting, CORS, Headers, Validation')
     console.log('Mode invite : ' + GUEST_MSG_LIMIT + ' messages + ' + GUEST_FILE_LIMIT + ' fichier avant inscription')
   })
+
+  // Purge au demarrage puis toutes les 24h
+  purgeOldConversations()
+  setInterval(purgeOldConversations, 24 * 60 * 60 * 1000)
 })
