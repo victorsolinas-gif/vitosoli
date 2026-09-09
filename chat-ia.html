@@ -477,15 +477,20 @@
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
         <div id="quotaBadge" style="display:none;align-items:center;gap:8px;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface);font-size:11px;color:var(--muted);font-family:'Inter',sans-serif;white-space:nowrap">
-          <span style="display:flex;align-items:center;gap:4px" title="Messages restants">
+          <span style="display:flex;align-items:center;gap:4px" title="Messages restants (quota gratuit)">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             <span id="quotaMsgText">–</span>
           </span>
           <span style="width:1px;height:12px;background:var(--border)"></span>
-          <span style="display:flex;align-items:center;gap:4px" title="Fichiers restants (images/PDF)">
+          <span style="display:flex;align-items:center;gap:4px" title="Fichiers restants (quota gratuit)">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             <span id="quotaFileText">–</span>
           </span>
+          <span id="quotaPaidSep" style="display:none;width:1px;height:12px;background:var(--border)"></span>
+          <a id="quotaPaidBadge" href="upgrade.html" style="display:none;align-items:center;gap:4px;color:#ffd166;text-decoration:none;font-weight:600" title="Solde payant (pack acheté, cumulable)">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <span id="quotaPaidText">–</span>
+          </a>
         </div>
       </div>
       <div class="topbar-actions">
@@ -496,6 +501,8 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
         </div>
         <div class="icon-btn" style="opacity:.35;font-size:13px" onclick="window.location='astro.html'">☉</div>
+        <div class="icon-btn" style="opacity:.35;font-size:13px" onclick="window.location='mangerbien.html'">🥗</div>
+        <div class="icon-btn" style="opacity:.35;font-size:13px" onclick="window.location='sesentirbien.html'">🌱</div>
       </div>
     </div>
 
@@ -966,6 +973,12 @@ async function sendMessage() {
     const data = await response.json();
     removeTyping();
 
+    if (data.error === 'auth_required') {
+      localStorage.removeItem('vitosoli_token');
+      window.location.href = 'login.html';
+      return;
+    }
+
     if (data.error === 'guest_limit') {
       conversationHistory.pop();
       showGuestLimitModal(data.message, data.canBuy);
@@ -1089,22 +1102,53 @@ function logout(){
 // Init user UI on load
 updateUserUI();
 
+// ── Inscription obligatoire : redirige si aucun token valide et pas de token en cours d'arrivee via lien email ──
+(function requireAuthRedirect(){
+  const hasAuthParam = new URLSearchParams(window.location.search).get('auth');
+  const hasToken = !!localStorage.getItem('vitosoli_token');
+  if(!hasToken && !hasAuthParam){
+    window.location.href = 'register.html';
+  }
+})();
+
 // ── QUOTA BADGE ──
 function renderQuota(quota){
   const badge = document.getElementById('quotaBadge');
   const msgText = document.getElementById('quotaMsgText');
   const fileText = document.getElementById('quotaFileText');
+  const paidSep = document.getElementById('quotaPaidSep');
+  const paidBadge = document.getElementById('quotaPaidBadge');
+  const paidText = document.getElementById('quotaPaidText');
+
   if(!quota){
     badge.style.display = 'none';
     return;
   }
   badge.style.display = 'flex';
-  msgText.textContent = quota.messagesRemaining + '/' + quota.messagesLimit;
-  fileText.textContent = quota.filesRemaining + '/' + quota.filesLimit;
 
-  // Couleur d'alerte si quasi epuise
-  const msgLow = quota.messagesRemaining <= Math.ceil(quota.messagesLimit * 0.15);
-  const fileLow = quota.filesRemaining === 0;
+  // Le serveur additionne le solde paye dans messagesRemaining/filesRemaining.
+  // On isole ici la part "quota gratuit seul" pour un affichage clair (ex: 8/20),
+  // et on affiche le solde paye a part (ex: +612).
+  const paidMsg = quota.paidMsgBalance || 0;
+  const paidFile = quota.paidFileBalance || 0;
+  const freeMsgRemaining = Math.max(0, quota.messagesRemaining - paidMsg);
+  const freeFileRemaining = Math.max(0, quota.filesRemaining - paidFile);
+
+  msgText.textContent = freeMsgRemaining + '/' + quota.messagesLimit;
+  fileText.textContent = freeFileRemaining + '/' + quota.filesLimit;
+
+  if(paidMsg > 0 || paidFile > 0){
+    paidSep.style.display = 'block';
+    paidBadge.style.display = 'flex';
+    paidText.textContent = '+' + paidMsg + ' msg · ' + paidFile + ' fic.';
+  } else {
+    paidSep.style.display = 'none';
+    paidBadge.style.display = 'none';
+  }
+
+  // Couleur d'alerte si quasi epuise (gratuit ET pas de solde paye pour compenser)
+  const msgLow = freeMsgRemaining <= Math.ceil(quota.messagesLimit * 0.15) && paidMsg === 0;
+  const fileLow = freeFileRemaining === 0 && paidFile === 0;
   badge.style.borderColor = (msgLow || fileLow) ? 'rgba(255,107,43,.4)' : 'var(--border)';
   msgText.style.color = msgLow ? '#ff6b2b' : 'var(--text)';
   fileText.style.color = fileLow ? '#ff6b2b' : 'var(--text)';

@@ -22,7 +22,8 @@ const SITE_URL = process.env.SITE_URL || 'https://vitosoli.com'
 
 // ── STRIPE ──
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null
-const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID || ''
+const STRIPE_PRICE_ID_SMALL = process.env.STRIPE_PRICE_ID_SMALL || '' // pack 5 euros - 100 messages
+const STRIPE_PRICE_ID_LARGE = process.env.STRIPE_PRICE_ID_LARGE || '' // pack 14,90 euros - 300 messages
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''
 if (!stripe) {
   console.warn('STRIPE_SECRET_KEY non definie - paiements desactives')
@@ -331,7 +332,10 @@ app.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (re
       ? session.customer_details.email.toLowerCase()
       : (session.metadata && session.metadata.email ? session.metadata.email.toLowerCase() : null)
 
-    if (email) {
+    const packMsg = session.metadata && session.metadata.packMsg ? parseInt(session.metadata.packMsg) : null
+    const packFile = session.metadata && session.metadata.packFile ? parseInt(session.metadata.packFile) : null
+
+    if (email && packMsg && packFile) {
       const database = await getDb()
       if (database) {
         const users = database.collection('users')
@@ -343,26 +347,28 @@ app.post('/webhook/stripe', express.raw({ type: 'application/json' }), async (re
             { email },
             {
               $inc: {
-                paidMsgBalance: PAID_MSG_LIMIT,
-                paidFileBalance: PAID_FILE_LIMIT
+                paidMsgBalance: packMsg,
+                paidFileBalance: packFile
               },
               $push: {
                 purchases: {
                   sessionId: session.id,
                   amount: session.amount_total,
                   currency: session.currency,
+                  packMsg: packMsg,
+                  packFile: packFile,
                   purchasedAt: new Date()
                 }
               }
             }
           )
-          console.log('Paiement confirme pour ' + email + ' - pack ajoute')
+          console.log('Paiement confirme pour ' + email + ' - pack ' + packMsg + ' messages ajoute')
         } else {
           console.warn('Paiement recu pour un email inconnu: ' + email)
         }
       }
     } else {
-      console.warn('Webhook Stripe recu sans email identifiable, session: ' + session.id)
+      console.warn('Webhook Stripe recu sans email ou metadata de pack identifiable, session: ' + session.id)
     }
   }
 
@@ -653,18 +659,18 @@ function verifyPage(success, message) {
 }
 
 // ============================================
-// ROUTE: /chat (mode invite)
+// ROUTE: /chat
 // ============================================
-const GUEST_MSG_LIMIT = 3     // messages texte pour les invites
-const GUEST_FILE_LIMIT = 1    // fichiers separes (en plus des 3 messages) pour les invites
+// Palier gratuit UNIQUE (non renouvelable, attribue une seule fois a l'inscription)
+const FREE_MSG_LIMIT = 5      // messages texte offerts a vie apres inscription
+const FREE_FILE_LIMIT = 1     // fichier offert separement (n'entame pas les 5 messages)
 
-const FREE_MSG_LIMIT = 20     // messages mensuels pour les inscrits gratuits
-const FREE_FILE_LIMIT = 3     // fichiers inclus dans les 20 messages
-const FREE_FILE_COST = 6      // "cout" en messages d'un fichier pour un inscrit gratuit (3 fichiers x 6 = 18, laisse 2 messages texte)
-
-const PAID_MSG_LIMIT = 300    // messages du forfait payant (a venir avec Stripe)
-const PAID_FILE_LIMIT = 20    // fichiers inclus dans le forfait payant (300/15=20, coherent avec PAID_FILE_COST)
-const PAID_FILE_COST = 15     // "cout" en messages d'un fichier pour le forfait payant
+// Packs payants (cumulables, n'expirent jamais)
+const PACK_SMALL_MSG = 100    // pack a 5 euros
+const PACK_SMALL_FILE = 6     // 100/15 = 6 fichiers max
+const PACK_LARGE_MSG = 300    // pack a 14,90 euros
+const PACK_LARGE_FILE = 20    // 300/15 = 20 fichiers max
+const PAID_FILE_COST = 15     // "cout" en messages d'un fichier impute sur le solde paye
 
 app.post('/chat', rateLimiter, async (req, res) => {
   const { messages } = req.body
@@ -683,97 +689,46 @@ app.post('/chat', rateLimiter, async (req, res) => {
   const payload = token ? verifyToken(token) : null
   const isAuthenticated = !!(payload && payload.type === 'session')
 
-  const database = await getDb()
-  let quotaInfo = null // sera rempli selon le type d'utilisateur pour etre renvoye au frontend
-
-  // ── MODE INVITE : 3 messages texte + 1 fichier separe ──
-  if (!isAuthenticated && database) {
-    const guests = database.collection('guests')
-    let guest = await guests.findOne({ ip: ip })
-
-    if (!guest) {
-      const location = await geolocate(ip)
-      guest = { ip: ip, count: 0, fileCount: 0, country: location.country, city: location.city }
-    }
-
-    const currentFileCount = guest.fileCount || 0
-    const currentMsgCount = guest.count || 0
-
-    if (hasAttachment) {
-      if (currentFileCount >= GUEST_FILE_LIMIT) {
-        return res.status(403).json({
-          error: 'guest_limit',
-          message: 'Vous avez atteint la limite de ' + GUEST_FILE_LIMIT + ' fichier (image/PDF) en mode invite. Creez un compte gratuit pour en envoyer davantage.'
-        })
-      }
-    } else {
-      if (currentMsgCount >= GUEST_MSG_LIMIT) {
-        return res.status(403).json({
-          error: 'guest_limit',
-          message: 'Vous avez atteint la limite de ' + GUEST_MSG_LIMIT + ' messages gratuits. Creez un compte gratuit pour continuer.'
-        })
-      }
-    }
-
-    const newMsgCount = currentMsgCount + (hasAttachment ? 0 : 1)
-    const newFileCount = currentFileCount + (hasAttachment ? 1 : 0)
-
-    await guests.updateOne(
-      { ip: ip },
-      {
-        $set: { lastSeen: new Date(), country: guest.country, city: guest.city },
-        $setOnInsert: { firstSeen: new Date() },
-        $inc: { count: hasAttachment ? 0 : 1, fileCount: hasAttachment ? 1 : 0 }
-      },
-      { upsert: true }
-    )
-
-    quotaInfo = {
-      plan: 'guest',
-      messagesRemaining: Math.max(0, GUEST_MSG_LIMIT - newMsgCount),
-      messagesLimit: GUEST_MSG_LIMIT,
-      filesRemaining: Math.max(0, GUEST_FILE_LIMIT - newFileCount),
-      filesLimit: GUEST_FILE_LIMIT
-    }
+  // L'inscription est desormais obligatoire : plus de mode invite anonyme
+  if (!isAuthenticated) {
+    return res.status(401).json({
+      error: 'auth_required',
+      message: 'Créez un compte gratuit pour discuter avec Vitosoli (5 messages offerts + 1 fichier).'
+    })
   }
 
-  // ── UTILISATEUR INSCRIT : quota gratuit mensuel + solde paye cumulable ──
-  if (isAuthenticated && database) {
+  const database = await getDb()
+  let quotaInfo = null
+
+  if (database) {
     const users = database.collection('users')
     const user = await users.findOne({ email: payload.email })
 
     if (user) {
-      // Reset mensuel du quota GRATUIT uniquement (le solde paye ne se reinitialise jamais, il est cumulable et n'expire pas)
-      const now = new Date()
-      const lastReset = user.quotaResetAt ? new Date(user.quotaResetAt) : null
-      const needsReset = !lastReset || lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear()
-
-      let msgUsed = needsReset ? 0 : (user.msgUsed || 0)
-      let fileUsed = needsReset ? 0 : (user.fileUsed || 0)
+      // Quota gratuit UNIQUE, attribue une seule fois a l'inscription, jamais reinitialise
+      let msgUsed = user.msgUsed || 0
+      let fileUsed = user.fileUsed || 0
       let paidMsgBalance = user.paidMsgBalance || 0
       let paidFileBalance = user.paidFileBalance || 0
 
       const freeMsgLeft = Math.max(0, FREE_MSG_LIMIT - msgUsed)
       const freeFileLeft = Math.max(0, FREE_FILE_LIMIT - fileUsed)
 
-      const fileCostFree = FREE_FILE_COST
-      const fileCostPaid = PAID_FILE_COST
-
-      // Determine si la requete peut etre satisfaite (gratuit d'abord, solde paye ensuite)
       let usesPaidBalance = false
 
       if (hasAttachment) {
-        const canUseFree = freeFileLeft > 0 && freeMsgLeft >= fileCostFree
-        const canUsePaid = paidFileBalance > 0 && paidMsgBalance >= fileCostPaid
+        // Le fichier gratuit est separe des 5 messages (n'entame pas le quota texte)
+        const canUseFreeFile = freeFileLeft > 0
+        const canUsePaid = paidFileBalance > 0 && paidMsgBalance >= PAID_FILE_COST
 
-        if (!canUseFree && !canUsePaid) {
+        if (!canUseFreeFile && !canUsePaid) {
           return res.status(403).json({
             error: 'guest_limit',
-            message: 'Vous avez atteint votre limite de fichiers ce mois-ci. Achetez un pack de messages pour continuer.',
+            message: 'Vous avez utilisé votre fichier gratuit. Achetez un pack de messages pour en envoyer davantage.',
             canBuy: true
           })
         }
-        usesPaidBalance = !canUseFree
+        usesPaidBalance = !canUseFreeFile
       } else {
         const canUseFree = freeMsgLeft > 0
         const canUsePaid = paidMsgBalance > 0
@@ -781,34 +736,36 @@ app.post('/chat', rateLimiter, async (req, res) => {
         if (!canUseFree && !canUsePaid) {
           return res.status(403).json({
             error: 'guest_limit',
-            message: 'Vous avez atteint votre limite de messages gratuits ce mois-ci. Achetez un pack de messages pour continuer.',
+            message: 'Vous avez utilisé vos 5 messages gratuits. Achetez un pack de messages pour continuer.',
             canBuy: true
           })
         }
         usesPaidBalance = !canUseFree
       }
 
-      const updateFields = { quotaResetAt: needsReset ? now : (user.quotaResetAt || now) }
+      const updateFields = {}
       const incFields = {}
 
       if (usesPaidBalance) {
-        incFields.paidMsgBalance = -(hasAttachment ? fileCostPaid : 1)
+        incFields.paidMsgBalance = -(hasAttachment ? PAID_FILE_COST : 1)
         if (hasAttachment) incFields.paidFileBalance = -1
-        // msgUsed/fileUsed du quota gratuit restent inchanges (on ne consomme pas ce qu'il n'y a plus)
-        updateFields.msgUsed = msgUsed
-        updateFields.fileUsed = fileUsed
       } else {
-        updateFields.msgUsed = msgUsed + (hasAttachment ? fileCostFree : 1)
-        updateFields.fileUsed = fileUsed + (hasAttachment ? 1 : 0)
+        if (hasAttachment) {
+          updateFields.fileUsed = fileUsed + 1
+        } else {
+          updateFields.msgUsed = msgUsed + 1
+        }
       }
 
-      const updateOps = { $set: updateFields }
+      const updateOps = {}
+      if (Object.keys(updateFields).length > 0) updateOps.$set = updateFields
       if (Object.keys(incFields).length > 0) updateOps.$inc = incFields
+      if (Object.keys(updateOps).length > 0) {
+        await users.updateOne({ email: payload.email }, updateOps)
+      }
 
-      await users.updateOne({ email: payload.email }, updateOps)
-
-      const finalMsgUsed = updateFields.msgUsed
-      const finalFileUsed = updateFields.fileUsed
+      const finalMsgUsed = updateFields.msgUsed !== undefined ? updateFields.msgUsed : msgUsed
+      const finalFileUsed = updateFields.fileUsed !== undefined ? updateFields.fileUsed : fileUsed
       const finalPaidMsg = paidMsgBalance + (incFields.paidMsgBalance || 0)
       const finalPaidFile = paidFileBalance + (incFields.paidFileBalance || 0)
 
@@ -1050,16 +1007,32 @@ function sanitizeConversationTitle(title) {
 // ROUTE: POST /create-checkout-session
 // ============================================
 app.post('/create-checkout-session', rateLimiter, requireAuth, async (req, res) => {
-  if (!stripe || !STRIPE_PRICE_ID) {
+  if (!stripe) {
     return res.status(503).json({ error: 'Le paiement n est pas disponible pour le moment.' })
+  }
+
+  const pack = req.body.pack // 'small' ou 'large'
+
+  const packConfig = {
+    small: { priceId: STRIPE_PRICE_ID_SMALL, msg: PACK_SMALL_MSG, file: PACK_SMALL_FILE },
+    large: { priceId: STRIPE_PRICE_ID_LARGE, msg: PACK_LARGE_MSG, file: PACK_LARGE_FILE }
+  }
+
+  const config = packConfig[pack]
+  if (!config || !config.priceId) {
+    return res.status(400).json({ error: 'Pack invalide.' })
   }
 
   try {
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
+      line_items: [{ price: config.priceId, quantity: 1 }],
       customer_email: req.userEmail,
-      metadata: { email: req.userEmail },
+      metadata: {
+        email: req.userEmail,
+        packMsg: String(config.msg),
+        packFile: String(config.file)
+      },
       success_url: SITE_URL + '/upgrade.html?success=1',
       cancel_url: SITE_URL + '/upgrade.html?canceled=1'
     })
@@ -1272,32 +1245,18 @@ app.get('/api/admin/stats', async (req, res) => {
 // ROUTE: /quota (verifie le quota restant sans envoyer de message)
 // ============================================
 app.get('/quota', rateLimiter, async (req, res) => {
-  const ip = getClientIp(req)
   const authHeader = req.headers.authorization
   const token = (authHeader && authHeader.indexOf('Bearer ') === 0) ? authHeader.slice(7) : null
   const payload = token ? verifyToken(token) : null
   const isAuthenticated = !!(payload && payload.type === 'session')
 
-  const database = await getDb()
-  if (!database) {
+  if (!isAuthenticated) {
     return res.json({ quota: null })
   }
 
-  if (!isAuthenticated) {
-    const guests = database.collection('guests')
-    const guest = await guests.findOne({ ip: ip })
-    const msgCount = guest ? (guest.count || 0) : 0
-    const fileCount = guest ? (guest.fileCount || 0) : 0
-
-    return res.json({
-      quota: {
-        plan: 'guest',
-        messagesRemaining: Math.max(0, GUEST_MSG_LIMIT - msgCount),
-        messagesLimit: GUEST_MSG_LIMIT,
-        filesRemaining: Math.max(0, GUEST_FILE_LIMIT - fileCount),
-        filesLimit: GUEST_FILE_LIMIT
-      }
-    })
+  const database = await getDb()
+  if (!database) {
+    return res.json({ quota: null })
   }
 
   const users = database.collection('users')
@@ -1306,11 +1265,8 @@ app.get('/quota', rateLimiter, async (req, res) => {
     return res.json({ quota: null })
   }
 
-  const now = new Date()
-  const lastReset = user.quotaResetAt ? new Date(user.quotaResetAt) : null
-  const needsReset = !lastReset || lastReset.getMonth() !== now.getMonth() || lastReset.getFullYear() !== now.getFullYear()
-  const msgUsed = needsReset ? 0 : (user.msgUsed || 0)
-  const fileUsed = needsReset ? 0 : (user.fileUsed || 0)
+  const msgUsed = user.msgUsed || 0
+  const fileUsed = user.fileUsed || 0
   const paidMsgBalance = user.paidMsgBalance || 0
   const paidFileBalance = user.paidFileBalance || 0
 
@@ -1367,7 +1323,7 @@ getDb().then(() => {
   app.listen(PORT, () => {
     console.log('Vitosoli server running -> http://localhost:' + PORT)
     console.log('Securite : Rate limiting, CORS, Headers, Validation')
-    console.log('Mode invite : ' + GUEST_MSG_LIMIT + ' messages + ' + GUEST_FILE_LIMIT + ' fichier avant inscription')
+    console.log('Inscription obligatoire : ' + FREE_MSG_LIMIT + ' messages + ' + FREE_FILE_LIMIT + ' fichier offerts a l\'inscription')
   })
 
   // Purge au demarrage puis toutes les 24h

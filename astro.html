@@ -588,6 +588,11 @@ async function requestAnalysis(chart, placeName, date, time){
     const data = await res.json();
     const content = document.getElementById('analysisContent');
 
+    if(data.error === 'auth_required'){
+      window.location.href = 'register.html';
+      return;
+    }
+
     if(data.error === 'guest_limit'){
       content.innerHTML = `
         <p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:16px">🔒 ${data.message}</p>
@@ -633,6 +638,11 @@ async function requestHoroscope(chart){
 
     const data = await res.json();
     const content = document.getElementById('horoscopeContent');
+
+    if(data.error === 'auth_required'){
+      window.location.href = 'register.html';
+      return;
+    }
 
     if(data.error === 'guest_limit'){
       content.innerHTML = `

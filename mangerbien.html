@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Vitosoli — Manger Bien</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07080f;--surface:#0d0f1c;--surface2:#171728;--surface3:#1f2038;
+  --border:rgba(255,255,255,0.07);--text:#eeeaff;--muted:#6b6d8a;
+  --grad:linear-gradient(135deg,#00d4a0,#00b4d8,#7c5cfc);
+  --green:#00ff88;
+  --safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px);
+}
+html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased}
+body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(40px + var(--safe-bottom));max-width:680px;margin:0 auto}
+
+.orb{position:fixed;border-radius:50%;pointer-events:none;z-index:0;filter:blur(110px);opacity:.15}
+.orb-a{width:480px;height:480px;top:-150px;right:-120px;background:radial-gradient(circle,#00d4a0,transparent)}
+.orb-b{width:420px;height:420px;bottom:-120px;left:-130px;background:radial-gradient(circle,#7c5cfc,transparent)}
+
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;position:relative;z-index:1}
+.header-left{display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;border-radius:10px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:15px;color:#fff}
+.header-title{font-family:'Syne',sans-serif;font-weight:800;font-size:17px}
+.back-btn{
+  width:34px;height:34px;border-radius:10px;border:1px solid var(--border);
+  background:var(--surface);color:var(--muted);display:flex;align-items:center;justify-content:center;
+  cursor:pointer;text-decoration:none;
+}
+
+.hero{text-align:center;margin-bottom:28px;position:relative;z-index:1}
+.hero-icon{font-size:40px;margin-bottom:8px}
+.hero h1{font-family:'Syne',sans-serif;font-weight:800;font-size:24px;margin-bottom:8px;
+  background:linear-gradient(135deg,#00d4a0,#00b4d8,#7c5cfc);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{font-size:13px;color:var(--muted);line-height:1.6;max-width:440px;margin:0 auto}
+
+.disclaimer{
+  position:relative;z-index:1;
+  background:rgba(255,209,102,.06);border:1px solid rgba(255,209,102,.2);
+  border-radius:14px;padding:14px 16px;margin-bottom:20px;
+  font-size:12px;color:#ffd166;line-height:1.6;display:flex;gap:10px;align-items:flex-start;
+}
+.disclaimer span{font-size:16px;flex-shrink:0}
+
+.form-card{
+  position:relative;z-index:1;background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:24px;margin-bottom:20px;
+}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.field input, .field select{
+  width:100%;background:var(--surface2);border:1.5px solid var(--border);
+  border-radius:10px;padding:12px 14px;color:var(--text);
+  font-size:15px;font-family:'Inter',sans-serif;outline:none;
+  transition:border-color .2s;
+}
+.field input:focus, .field select:focus{border-color:rgba(0,212,160,.5)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.field-hint{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.5}
+
+.sex-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sex-btn{
+  padding:12px;border-radius:10px;border:1.5px solid var(--border);
+  background:var(--surface2);color:var(--muted);font-size:14px;font-weight:500;
+  cursor:pointer;text-align:center;transition:all .15s;
+}
+.sex-btn.active{border-color:rgba(0,212,160,.5);background:rgba(0,212,160,.1);color:#00d4a0}
+
+.goal-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.goal-btn{
+  padding:14px 8px;border-radius:12px;border:1.5px solid var(--border);
+  background:var(--surface2);color:var(--muted);cursor:pointer;text-align:center;
+  transition:all .15s;
+}
+.goal-btn.active{border-color:rgba(0,212,160,.5);background:rgba(0,212,160,.1)}
+.goal-btn .num{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--text)}
+.goal-btn.active .num{color:#00d4a0}
+.goal-btn .unit{font-size:10px;color:var(--muted);margin-top:2px}
+
+.btn{
+  width:100%;padding:14px;border-radius:12px;border:none;
+  background:var(--grad);color:#fff;font-size:15px;font-weight:600;
+  font-family:'Inter',sans-serif;cursor:pointer;
+  transition:opacity .2s,transform .15s;-webkit-tap-highlight-color:transparent;
+}
+.btn:hover{opacity:.9;transform:translateY(-1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+.spinner{
+  display:inline-block;width:14px;height:14px;
+  border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+  border-radius:50%;animation:spin .6s linear infinite;
+  vertical-align:middle;margin-right:6px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.error-box{
+  margin-top:14px;padding:12px;border-radius:10px;
+  background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.25);
+  color:#ff6b6b;font-size:12px;text-align:center;display:none;
+}
+
+.results{display:none;position:relative;z-index:1}
+.results.visible{display:block}
+
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;padding:16px 10px;text-align:center;
+}
+.stat-card .icon{font-size:20px;margin-bottom:6px}
+.stat-card .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.stat-card .value{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-card .sub{font-size:10px;color:var(--muted);margin-top:2px}
+
+.plan-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:24px;margin-bottom:16px;
+}
+.plan-card h3{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;margin-bottom:12px;
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.plan-text{font-size:14px;line-height:1.8;color:#d4d2ed;white-space:pre-wrap}
+.plan-loading{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
+
+.new-form-btn{
+  width:100%;padding:13px;border-radius:12px;background:transparent;
+  border:1px solid var(--border);color:var(--muted);font-size:13px;
+  cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px;
+}
+.new-form-btn:hover{border-color:rgba(0,212,160,.4);color:var(--text)}
+</style>
+</head>
+<body>
+
+<div class="orb orb-a"></div>
+<div class="orb orb-b"></div>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo-icon">🥗</div>
+    <div class="header-title">Manger Bien</div>
+  </div>
+  <a href="chat-ia.html" class="back-btn">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  </a>
+</div>
+
+<div id="formView">
+  <div class="hero">
+    <div class="hero-icon">🥗</div>
+    <h1>Un menu sur-mesure</h1>
+    <p>Renseignez quelques informations pour obtenir un plan alimentaire de la semaine adapté à votre objectif, avec des conseils d'activité physique légère.</p>
+  </div>
+
+  <div class="disclaimer">
+    <span>ℹ️</span>
+    <span>Ces conseils sont généraux et ne remplacent pas l'avis d'un médecin ou d'un(e) diététicien(ne), en particulier en cas de pathologie, grossesse, ou trouble du comportement alimentaire. La perte de poids est volontairement plafonnée à 3 kg/mois, un rythme plus rapide pouvant être dangereux pour la santé.</span>
+  </div>
+
+  <div class="form-card">
+    <div class="field">
+      <label>Sexe</label>
+      <div class="sex-toggle">
+        <div class="sex-btn active" id="sexF" onclick="selectSex('F')">Femme</div>
+        <div class="sex-btn" id="sexM" onclick="selectSex('M')">Homme</div>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="age">Âge</label>
+        <input type="number" id="age" placeholder="35" min="15" max="100" required>
+      </div>
+      <div class="field">
+        <label for="height">Taille (cm)</label>
+        <input type="number" id="height" placeholder="170" min="120" max="230" required>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="weight">Poids actuel (kg)</label>
+        <input type="number" id="weight" placeholder="75" min="30" max="300" step="0.1" required>
+      </div>
+      <div class="field">
+        <label for="waist">Tour de ventre (cm)</label>
+        <input type="number" id="waist" placeholder="90" min="50" max="200" required>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="wrist">Tour de poignet (cm)</label>
+      <input type="number" id="wrist" placeholder="16" min="10" max="25" step="0.1" required>
+      <div class="field-hint">Mesuré juste sous l'os du poignet — sert à estimer votre corpulence (charpente osseuse fine, moyenne ou large).</div>
+    </div>
+
+    <div class="field">
+      <label>Objectif de perte de poids par mois</label>
+      <div class="goal-grid">
+        <div class="goal-btn active" id="goal1" onclick="selectGoal(1)">
+          <div class="num">1</div>
+          <div class="unit">kg / mois</div>
+        </div>
+        <div class="goal-btn" id="goal2" onclick="selectGoal(2)">
+          <div class="num">2</div>
+          <div class="unit">kg / mois</div>
+        </div>
+        <div class="goal-btn" id="goal3" onclick="selectGoal(3)">
+          <div class="num">3</div>
+          <div class="unit">kg / mois</div>
+        </div>
+      </div>
+      <div class="field-hint">⚠️ Au-delà de 3 kg/mois, la perte de poids devient dangereuse pour la santé — cette limite n'est pas modifiable.</div>
+    </div>
+
+    <button class="btn" id="generateBtn" onclick="generatePlan()">✨ Générer mon menu de la semaine</button>
+
+    <div class="error-box" id="errorBox"></div>
+  </div>
+</div>
+
+<div id="resultsView" class="results">
+  <div class="stats-grid" id="statsGrid"></div>
+
+  <div class="plan-card">
+    <h3>🍽️ Votre menu de la semaine</h3>
+    <div id="planContent">
+      <div class="plan-loading"><span class="spinner" style="border-top-color:#00d4a0"></span> Vitosoli prépare votre menu personnalisé...</div>
+    </div>
+  </div>
+
+  <button class="new-form-btn" onclick="resetForm()">🔄 Refaire le formulaire</button>
+</div>
+
+<script>
+let selectedSex = 'F';
+let selectedGoal = 1;
+
+function selectSex(sex){
+  selectedSex = sex;
+  document.getElementById('sexF').classList.toggle('active', sex === 'F');
+  document.getElementById('sexM').classList.toggle('active', sex === 'M');
+}
+
+function selectGoal(goal){
+  selectedGoal = goal;
+  [1,2,3].forEach(g => document.getElementById('goal'+g).classList.toggle('active', g === goal));
+}
+
+function showError(msg){
+  const errorBox = document.getElementById('errorBox');
+  errorBox.textContent = '⚠️ ' + msg;
+  errorBox.style.display = 'block';
+}
+
+function calculateBMI(weightKg, heightCm){
+  const heightM = heightCm / 100;
+  return weightKg / (heightM * heightM);
+}
+
+function bmiCategory(bmi){
+  if(bmi < 18.5) return { label: 'Insuffisance pondérale', color: '#38bdf8' };
+  if(bmi < 25) return { label: 'Corpulence normale', color: '#00ff88' };
+  if(bmi < 30) return { label: 'Surpoids', color: '#ffd166' };
+  if(bmi < 35) return { label: 'Obésité modérée', color: '#ff8c42' };
+  return { label: 'Obésité sévère', color: '#ff6b6b' };
+}
+
+function frameSize(wristCm, heightCm, sex){
+  const ratio = heightCm / wristCm;
+  if(sex === 'F'){
+    if(ratio > 11.0) return 'fine';
+    if(ratio >= 10.1) return 'moyenne';
+    return 'large';
+  } else {
+    if(ratio > 10.4) return 'fine';
+    if(ratio >= 9.6) return 'moyenne';
+    return 'large';
+  }
+}
+
+const frameLabels = { fine: 'Fine', moyenne: 'Moyenne', large: 'Large' };
+
+function estimateBMR(weightKg, heightCm, age, sex){
+  if(sex === 'F') return 10*weightKg + 6.25*heightCm - 5*age - 161;
+  return 10*weightKg + 6.25*heightCm - 5*age + 5;
+}
+
+async function generatePlan(){
+  const age = parseInt(document.getElementById('age').value);
+  const height = parseFloat(document.getElementById('height').value);
+  const weight = parseFloat(document.getElementById('weight').value);
+  const waist = parseFloat(document.getElementById('waist').value);
+  const wrist = parseFloat(document.getElementById('wrist').value);
+
+  const errorBox = document.getElementById('errorBox');
+  errorBox.style.display = 'none';
+
+  if(!age || !height || !weight || !waist || !wrist){
+    showError('Merci de remplir tous les champs.');
+    return;
+  }
+
+  const btn = document.getElementById('generateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Calcul en cours...';
+
+  const bmi = calculateBMI(weight, height);
+  const category = bmiCategory(bmi);
+  const frame = frameSize(wrist, height, selectedSex);
+  const bmr = estimateBMR(weight, height, age, selectedSex);
+
+  displayStats(bmi, category, frame, waist, selectedSex);
+
+  document.getElementById('formView').style.display = 'none';
+  document.getElementById('resultsView').classList.add('visible');
+  window.scrollTo(0,0);
+
+  requestMealPlan({ age, height, weight, waist, wrist, sex: selectedSex, goal: selectedGoal, bmi, category, frame, bmr });
+
+  btn.disabled = false;
+  btn.innerHTML = '✨ Générer mon menu de la semaine';
+}
+
+function displayStats(bmi, category, frame, waist, sex){
+  const waistAlertThreshold = sex === 'F' ? 88 : 102;
+  const waistAlert = waist >= waistAlertThreshold;
+
+  document.getElementById('statsGrid').innerHTML =
+    '<div class="stat-card"><div class="icon">⚖️</div><div class="label">IMC</div><div class="value">' + bmi.toFixed(1) + '</div><div class="sub" style="color:' + category.color + '">' + category.label + '</div></div>' +
+    '<div class="stat-card"><div class="icon">🦴</div><div class="label">Charpente</div><div class="value">' + frameLabels[frame] + '</div><div class="sub">Selon tour de poignet</div></div>' +
+    '<div class="stat-card"><div class="icon">📏</div><div class="label">Tour de ventre</div><div class="value">' + waist + ' cm</div><div class="sub" style="color:' + (waistAlert ? '#ff8c42' : '#00ff88') + '">' + (waistAlert ? 'À surveiller' : 'Dans la norme') + '</div></div>';
+}
+
+function resetForm(){
+  document.getElementById('formView').style.display = 'block';
+  document.getElementById('resultsView').classList.remove('visible');
+  window.scrollTo(0,0);
+}
+
+async function requestMealPlan(data){
+  const goalLabels = { 1: '1 kg par mois (rythme doux)', 2: '2 kg par mois (rythme modéré)', 3: '3 kg par mois (rythme actif, le maximum raisonnable)' };
+
+  const summary = 'Profil : ' + (data.sex === 'F' ? 'Femme' : 'Homme') + ', ' + data.age + ' ans, ' + data.height + ' cm, ' + data.weight + ' kg.\n' +
+    'Tour de ventre : ' + data.waist + ' cm. Tour de poignet : ' + data.wrist + ' cm (charpente ' + frameLabels[data.frame].toLowerCase() + ').\n' +
+    'IMC : ' + data.bmi.toFixed(1) + ' (' + data.category.label + ').\n' +
+    'Objectif : perdre ' + goalLabels[data.goal] + '.';
+
+  const systemPrompt = "Tu es Vitosoli, un coach en nutrition bienveillant et pédagogue, mais tu n'es pas un médecin ni un(e) diététicien(ne) diplômé(e) et tu ne dois jamais prétendre l'être. À partir du profil fourni, propose un plan alimentaire équilibré pour une semaine (7 jours, 3 repas + 1 collation par jour, format concis avec des titres de jour clairs) adapté à l'objectif de perte de poids indiqué, qui ne doit JAMAIS dépasser le rythme demandé par l'utilisateur. Base-toi sur des principes nutritionnels reconnus (déficit calorique modéré et sûr, protéines suffisantes, fibres, hydratation). Termine par une section '🏃 Activité physique légère conseillée' avec 3-4 suggestions d'exercices doux adaptés (marche, natation, vélo, étirements) et leur fréquence recommandée. Ajoute une phrase finale rappelant que ce plan est indicatif et qu'un avis médical ou diététique est recommandé pour un suivi personnalisé, en particulier en cas de problème de santé. Ne mentionne jamais que tu es une IA. Reste concret, évite les généralités vagues.";
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    const token = localStorage.getItem('vitosoli_token');
+    if(token) headers['Authorization'] = 'Bearer ' + token;
+
+    const res = await fetch('https://vitosoli.onrender.com/chat', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({
+        messages: [{ role: 'user', content: 'Voici mon profil, merci de me proposer un menu de la semaine adapté :\n\n' + summary }],
+        system: systemPrompt
+      })
+    });
+
+    const data2 = await res.json();
+    const content = document.getElementById('planContent');
+
+    if(data2.error === 'auth_required'){
+      window.location.href = 'register.html';
+      return;
+    }
+
+    if(data2.error === 'guest_limit'){
+      content.innerHTML = '<p style="font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:16px">🔒 ' + data2.message + '</p>' +
+        '<a href="register.html?reason=guest_limit" style="display:block;text-align:center;padding:13px;border-radius:10px;background:var(--grad);color:#fff;font-weight:600;font-size:14px;text-decoration:none">Créer un compte gratuit</a>';
+      return;
+    }
+
+    if(data2.error){
+      content.innerHTML = '<p style="color:#ff6b6b;font-size:13px">Une erreur est survenue lors de la génération du menu. Réessayez plus tard.</p>';
+      return;
+    }
+
+    content.innerHTML = '<div class="plan-text">' + escapeHtml(data2.reply) + '</div>';
+  } catch(err){
+    document.getElementById('planContent').innerHTML = '<p style="color:#ff6b6b;font-size:13px">Erreur de connexion. Réessayez plus tard.</p>';
+  }
+}
+
+function escapeHtml(text){
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+</script>
+</body>
+</html>

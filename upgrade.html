@@ -118,7 +118,27 @@ h1{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;text-align:cente
   </div>
 
   <div class="pack-card">
-    <div class="pack-price">14,99€</div>
+    <div class="pack-price">5€</div>
+    <div class="pack-name">Pack 100 messages Vitosoli</div>
+    <div class="pack-features">
+      <div class="pack-feature">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        100 messages supplémentaires
+      </div>
+      <div class="pack-feature">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Jusqu'à 6 fichiers (images/PDF, 5 Mo max)
+      </div>
+      <div class="pack-feature">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        Cumulable, n'expire jamais
+      </div>
+    </div>
+    <button class="btn" id="buyBtnSmall" onclick="startCheckout('small')" style="margin-top:16px">Acheter — 5€</button>
+  </div>
+
+  <div class="pack-card" style="border-color:rgba(0,212,160,.5)">
+    <div class="pack-price">14,90€</div>
     <div class="pack-name">Pack 300 messages Vitosoli</div>
     <div class="pack-features">
       <div class="pack-feature">
@@ -133,14 +153,9 @@ h1{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;text-align:cente
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         Cumulable, n'expire jamais
       </div>
-      <div class="pack-feature">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        Paiement unique, sans abonnement
-      </div>
     </div>
+    <button class="btn" id="buyBtnLarge" onclick="startCheckout('large')" style="margin-top:16px">Acheter — 14,90€</button>
   </div>
-
-  <button class="btn" id="buyBtn" onclick="startCheckout()">Acheter le pack — 14,99€</button>
 
   <div class="message" id="msgBox"></div>
 
@@ -150,7 +165,6 @@ h1{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;text-align:cente
 <script>
 const params = new URLSearchParams(window.location.search);
 const msgBox = document.getElementById('msgBox');
-const buyBtn = document.getElementById('buyBtn');
 
 if(params.get('success') === '1'){
   showMessage('success', '✅ Paiement réussi ! Votre pack a été ajouté à votre compte. Cela peut prendre quelques secondes à apparaître.');
@@ -172,21 +186,26 @@ async function authHeaders(){
   return headers;
 }
 
-async function startCheckout(){
+const buyBtnLabels = { small: 'Acheter — 5€', large: 'Acheter — 14,90€' };
+
+async function startCheckout(pack){
   const token = localStorage.getItem('vitosoli_token');
+  const btn = pack === 'small' ? document.getElementById('buyBtnSmall') : document.getElementById('buyBtnLarge');
+
   if(!token){
     showMessage('error', '❌ Vous devez être connecté pour acheter un pack.');
     setTimeout(() => { window.location.href = 'login.html'; }, 1500);
     return;
   }
 
-  buyBtn.disabled = true;
-  buyBtn.innerHTML = '<span class="spinner"></span> Redirection en cours...';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Redirection en cours...';
 
   try {
     const response = await fetch('https://vitosoli.onrender.com/create-checkout-session', {
       method: 'POST',
-      headers: await authHeaders()
+      headers: await authHeaders(),
+      body: JSON.stringify({ pack })
     });
 
     const data = await response.json();
@@ -195,13 +214,13 @@ async function startCheckout(){
       window.location.href = data.url;
     } else {
       showMessage('error', '❌ ' + (data.error || 'Une erreur est survenue.'));
-      buyBtn.disabled = false;
-      buyBtn.textContent = 'Acheter le pack — 14,99€';
+      btn.disabled = false;
+      btn.textContent = buyBtnLabels[pack];
     }
   } catch(err){
     showMessage('error', '❌ Erreur de connexion au serveur. Réessayez.');
-    buyBtn.disabled = false;
-    buyBtn.textContent = 'Acheter le pack — 14,99€';
+    btn.disabled = false;
+    btn.textContent = buyBtnLabels[pack];
   }
 }
 

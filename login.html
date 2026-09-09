@@ -94,25 +94,25 @@ h1{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;text-align:cente
     <span class="logo-name">Vitosoli</span>
   </div>
 
-  <h1>Se connecter</h1>
-  <p class="subtitle">Entrez votre email et votre mot de passe pour accéder à votre compte Vitosoli.</p>
+  <h1 id="pageTitle">Se connecter</h1>
+  <p class="subtitle" id="pageSubtitle">Entrez votre email et votre mot de passe pour accéder à votre compte Vitosoli.</p>
 
   <div class="verified-banner" id="verifiedBanner">
     <span>✅</span>
-    <span>Votre compte a été confirmé ! Connectez-vous ci-dessous.</span>
+    <span id="verifiedBannerText">Votre compte a été confirmé ! Connectez-vous ci-dessous.</span>
   </div>
 
   <form id="loginForm">
     <div class="field">
-      <label for="email">Adresse email</label>
+      <label for="email" id="labelEmail">Adresse email</label>
       <input type="email" id="email" placeholder="vous@exemple.com" required autocomplete="email">
     </div>
 
     <div class="field">
-      <label for="password">Mot de passe</label>
+      <label for="password" id="labelPassword">Mot de passe</label>
       <input type="password" id="password" placeholder="Votre mot de passe" required autocomplete="current-password">
       <div style="text-align:right;margin-top:6px">
-        <a href="#" onclick="showForgotForm(event)" style="font-size:12px;color:#a78bfa;text-decoration:none">Mot de passe oublié ?</a>
+        <a href="#" onclick="showForgotForm(event)" style="font-size:12px;color:#a78bfa;text-decoration:none" id="forgotLink">Mot de passe oublié ?</a>
       </div>
     </div>
 
@@ -123,25 +123,97 @@ h1{font-family:'Syne',sans-serif;font-weight:800;font-size:22px;text-align:cente
 
   <!-- Formulaire mot de passe oublie (cache par defaut) -->
   <form id="forgotForm" style="display:none">
-    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">Entrez votre email, nous vous enverrons un lien pour choisir un nouveau mot de passe.</p>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6" id="forgotIntro">Entrez votre email, nous vous enverrons un lien pour choisir un nouveau mot de passe.</p>
     <div class="field">
-      <label for="forgotEmail">Adresse email</label>
+      <label for="forgotEmail" id="labelForgotEmail">Adresse email</label>
       <input type="email" id="forgotEmail" placeholder="vous@exemple.com" required autocomplete="email">
     </div>
     <button type="submit" class="btn" id="forgotSubmitBtn">Envoyer le lien</button>
     <div class="message" id="forgotMsgBox"></div>
     <div style="text-align:center;margin-top:14px">
-      <a href="#" onclick="hideForgotForm(event)" style="font-size:13px;color:var(--muted);text-decoration:none">← Retour à la connexion</a>
+      <a href="#" onclick="hideForgotForm(event)" style="font-size:13px;color:var(--muted);text-decoration:none" id="backToLoginLink">← Retour à la connexion</a>
     </div>
   </form>
 
   <div class="links" id="registerLink">
-    <span>Pas encore de compte ?</span>
-    <a href="register.html">Créer un compte</a>
+    <span id="registerLinkText">Pas encore de compte ?</span>
+    <a href="register.html" id="registerLinkAnchor">Créer un compte</a>
   </div>
 </div>
 
 <script>
+// ── Détection langue navigateur ──
+const UI_LANG = (navigator.language || navigator.userLanguage || 'fr').split('-')[0].toLowerCase();
+
+const T = {
+  fr: {
+    title: 'Se connecter', subtitle: 'Entrez votre email et votre mot de passe pour accéder à votre compte Vitosoli.',
+    verifiedBanner: 'Votre compte a été confirmé ! Connectez-vous ci-dessous.',
+    labelEmail: 'Adresse email', labelPassword: 'Mot de passe', forgotLink: 'Mot de passe oublié ?',
+    submitBtn: 'Se connecter', connecting: 'Connexion...',
+    forgotIntro: 'Entrez votre email, nous vous enverrons un lien pour choisir un nouveau mot de passe.',
+    labelForgotEmail: 'Adresse email', forgotSubmitBtn: 'Envoyer le lien', backToLoginLink: '← Retour à la connexion',
+    registerLinkText: 'Pas encore de compte ?', registerLinkAnchor: 'Créer un compte',
+    errGeneric: 'Une erreur est survenue.', errServer: 'Erreur de connexion au serveur. Réessayez.',
+    forgotDefaultMsg: 'Si un compte existe avec cet email, un lien vient de lui être envoyé.',
+    sending: 'Envoi en cours...'
+  },
+  en: {
+    title: 'Log in', subtitle: 'Enter your email and password to access your Vitosoli account.',
+    verifiedBanner: 'Your account has been confirmed! Log in below.',
+    labelEmail: 'Email address', labelPassword: 'Password', forgotLink: 'Forgot password?',
+    submitBtn: 'Log in', connecting: 'Logging in...',
+    forgotIntro: 'Enter your email, we will send you a link to choose a new password.',
+    labelForgotEmail: 'Email address', forgotSubmitBtn: 'Send the link', backToLoginLink: '← Back to login',
+    registerLinkText: "Don't have an account yet?", registerLinkAnchor: 'Create an account',
+    errGeneric: 'An error occurred.', errServer: 'Connection error. Please try again.',
+    forgotDefaultMsg: 'If an account exists with this email, a link has just been sent to it.',
+    sending: 'Sending...'
+  },
+  it: {
+    title: 'Accedi', subtitle: 'Inserisci la tua email e password per accedere al tuo account Vitosoli.',
+    verifiedBanner: 'Il tuo account è stato confermato! Accedi qui sotto.',
+    labelEmail: 'Indirizzo email', labelPassword: 'Password', forgotLink: 'Password dimenticata?',
+    submitBtn: 'Accedi', connecting: 'Accesso in corso...',
+    forgotIntro: 'Inserisci la tua email, ti invieremo un link per scegliere una nuova password.',
+    labelForgotEmail: 'Indirizzo email', forgotSubmitBtn: 'Invia il link', backToLoginLink: '← Torna al login',
+    registerLinkText: 'Non hai ancora un account?', registerLinkAnchor: 'Crea un account',
+    errGeneric: 'Si è verificato un errore.', errServer: 'Errore di connessione al server. Riprova.',
+    forgotDefaultMsg: 'Se esiste un account con questa email, un link è stato appena inviato.',
+    sending: 'Invio in corso...'
+  },
+  es: {
+    title: 'Iniciar sesión', subtitle: 'Ingresa tu email y contraseña para acceder a tu cuenta Vitosoli.',
+    verifiedBanner: '¡Tu cuenta ha sido confirmada! Inicia sesión abajo.',
+    labelEmail: 'Correo electrónico', labelPassword: 'Contraseña', forgotLink: '¿Olvidaste tu contraseña?',
+    submitBtn: 'Iniciar sesión', connecting: 'Iniciando sesión...',
+    forgotIntro: 'Ingresa tu email, te enviaremos un enlace para elegir una nueva contraseña.',
+    labelForgotEmail: 'Correo electrónico', forgotSubmitBtn: 'Enviar enlace', backToLoginLink: '← Volver al inicio de sesión',
+    registerLinkText: '¿Aún no tienes cuenta?', registerLinkAnchor: 'Crear una cuenta',
+    errGeneric: 'Se produjo un error.', errServer: 'Error de conexión con el servidor. Inténtalo de nuevo.',
+    forgotDefaultMsg: 'Si existe una cuenta con este email, se le acaba de enviar un enlace.',
+    sending: 'Enviando...'
+  }
+};
+
+const lang = T[UI_LANG] || T['fr'];
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('pageTitle').textContent = lang.title;
+  document.getElementById('pageSubtitle').textContent = lang.subtitle;
+  document.getElementById('verifiedBannerText').textContent = lang.verifiedBanner;
+  document.getElementById('labelEmail').textContent = lang.labelEmail;
+  document.getElementById('labelPassword').textContent = lang.labelPassword;
+  document.getElementById('forgotLink').textContent = lang.forgotLink;
+  document.getElementById('submitBtn').textContent = lang.submitBtn;
+  document.getElementById('forgotIntro').textContent = lang.forgotIntro;
+  document.getElementById('labelForgotEmail').textContent = lang.labelForgotEmail;
+  document.getElementById('forgotSubmitBtn').textContent = lang.forgotSubmitBtn;
+  document.getElementById('backToLoginLink').textContent = lang.backToLoginLink;
+  document.getElementById('registerLinkText').textContent = lang.registerLinkText;
+  document.getElementById('registerLinkAnchor').textContent = lang.registerLinkAnchor;
+});
+
 // Afficher la banniere si on vient de confirmer l'email
 const params = new URLSearchParams(window.location.search);
 if(params.get('verified') === '1'){
@@ -161,7 +233,7 @@ form.addEventListener('submit', async (e) => {
   msgBox.style.display = 'none';
 
   submitBtn.disabled = true;
-  submitBtn.innerHTML = '<span class="spinner"></span> Connexion...';
+  submitBtn.innerHTML = '<span class="spinner"></span> ' + lang.connecting;
 
   try {
     const response = await fetch('https://vitosoli.onrender.com/login', {
@@ -176,14 +248,14 @@ form.addEventListener('submit', async (e) => {
       localStorage.setItem('vitosoli_token', data.token);
       window.location.href = 'chat-ia.html';
     } else {
-      showMessage('error', '❌ ' + (data.error || 'Une erreur est survenue.'));
+      showMessage('error', '❌ ' + (data.error || lang.errGeneric));
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Se connecter';
+      submitBtn.textContent = lang.submitBtn;
     }
   } catch(err){
-    showMessage('error', '❌ Erreur de connexion au serveur. Réessayez.');
+    showMessage('error', '❌ ' + lang.errServer);
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Se connecter';
+    submitBtn.textContent = lang.submitBtn;
   }
 });
 
@@ -220,7 +292,7 @@ forgotForm.addEventListener('submit', async (e) => {
   forgotMsgBox.style.display = 'none';
 
   forgotSubmitBtn.disabled = true;
-  forgotSubmitBtn.innerHTML = '<span class="spinner"></span> Envoi en cours...';
+  forgotSubmitBtn.innerHTML = '<span class="spinner"></span> ' + lang.sending;
 
   try {
     const response = await fetch('https://vitosoli.onrender.com/forgot-password', {
@@ -232,16 +304,16 @@ forgotForm.addEventListener('submit', async (e) => {
     const data = await response.json();
 
     forgotMsgBox.className = 'message success';
-    forgotMsgBox.textContent = '✅ ' + (data.message || 'Si un compte existe avec cet email, un lien vient de lui être envoyé.');
+    forgotMsgBox.textContent = '✅ ' + (data.message || lang.forgotDefaultMsg);
     forgotMsgBox.style.display = 'block';
     document.getElementById('forgotEmail').disabled = true;
     forgotSubmitBtn.style.display = 'none';
   } catch(err){
     forgotMsgBox.className = 'message error';
-    forgotMsgBox.textContent = '❌ Erreur de connexion au serveur. Réessayez.';
+    forgotMsgBox.textContent = '❌ ' + lang.errServer;
     forgotMsgBox.style.display = 'block';
     forgotSubmitBtn.disabled = false;
-    forgotSubmitBtn.textContent = 'Envoyer le lien';
+    forgotSubmitBtn.textContent = lang.forgotSubmitBtn;
   }
 });
 </script>

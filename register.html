@@ -106,40 +106,40 @@ h1{font-family:'Syne',sans-serif;font-weight:800;font-size:24px;text-align:cente
     <span class="logo-name">Vitosoli</span>
   </div>
 
-  <h1>Créez votre compte</h1>
-  <p class="subtitle">20 messages gratuits par mois, dont 3 fichiers (images/PDF). Confirmez simplement votre email pour activer votre compte.</p>
+  <h1 id="pageTitle">Créez votre compte</h1>
+  <p class="subtitle" id="pageSubtitle">5 messages offerts + 1 fichier (image/PDF). Confirmez simplement votre email pour activer votre compte.</p>
 
   <div class="guest-banner" id="guestBanner" style="display:none">
     <span>🔒</span>
-    <span>Vous avez atteint la limite de messages gratuits. Créez un compte pour obtenir 20 messages gratuits par mois.</span>
+    <span id="guestBannerText">Vous avez utilisé vos messages gratuits. Créez un compte pour continuer, ou achetez un pack de messages.</span>
   </div>
 
   <form id="registerForm">
     <div class="field">
-      <label for="email">Adresse email</label>
+      <label for="email" id="labelEmail">Adresse email</label>
       <input type="email" id="email" placeholder="vous@exemple.com" required autocomplete="email">
-      <div class="field-hint">Les adresses jetables (mailinator, yopmail...) ne sont pas acceptées.</div>
+      <div class="field-hint" id="hintEmail">Les adresses jetables (mailinator, yopmail...) ne sont pas acceptées.</div>
     </div>
 
     <div class="field">
-      <label for="phone">Numéro de téléphone</label>
+      <label for="phone" id="labelPhone">Numéro de téléphone</label>
       <input type="tel" id="phone" placeholder="+33 6 12 34 56 78" required autocomplete="tel">
     </div>
 
     <div class="field">
-      <label for="password">Mot de passe</label>
+      <label for="password" id="labelPassword">Mot de passe</label>
       <input type="password" id="password" placeholder="8 caractères minimum" required autocomplete="new-password" minlength="8">
     </div>
 
     <div class="field">
-      <label for="passwordConfirm">Confirmer le mot de passe</label>
+      <label for="passwordConfirm" id="labelPasswordConfirm">Confirmer le mot de passe</label>
       <input type="password" id="passwordConfirm" placeholder="Retapez votre mot de passe" required autocomplete="new-password" minlength="8">
     </div>
 
     <div class="consent">
       <input type="checkbox" id="consent" required>
-      <label for="consent">
-        J'accepte que mes données (email, téléphone, adresse IP et localisation approximative) soient enregistrées par Vitosoli pour la gestion de mon compte, conformément à notre <a href="#" onclick="alert('Politique de confidentialité : vos données ne sont jamais partagées avec des tiers et sont utilisées uniquement pour la gestion de votre compte Vitosoli.'); return false;">politique de confidentialité</a>.
+      <label for="consent" id="labelConsent">
+        J'accepte que mes données (email, téléphone, adresse IP et localisation approximative) soient enregistrées par Vitosoli pour la gestion de mon compte, conformément à notre <a href="#" onclick="alert(consentAlertText); return false;" id="consentLink">politique de confidentialité</a>.
       </label>
     </div>
 
@@ -148,11 +148,109 @@ h1{font-family:'Syne',sans-serif;font-weight:800;font-size:24px;text-align:cente
     <div class="message" id="msgBox"></div>
   </form>
 
-  <a href="login.html" class="back-link">Déjà un compte ? Se connecter</a>
-  <a href="chat-ia.html" class="back-link">← Retour à Vitosoli</a>
+  <a href="login.html" class="back-link" id="loginLink">Déjà un compte ? Se connecter</a>
+  <a href="chat-ia.html" class="back-link" id="backLink">← Retour à Vitosoli</a>
 </div>
 
 <script>
+// ── Détection langue navigateur ──
+const UI_LANG = (navigator.language || navigator.userLanguage || 'fr').split('-')[0].toLowerCase();
+
+const T = {
+  fr: {
+    title: 'Créez votre compte',
+    subtitle: '5 messages offerts + 1 fichier (image/PDF). Confirmez simplement votre email pour activer votre compte.',
+    guestBanner: 'Vous avez utilisé vos messages gratuits. Créez un compte pour continuer, ou achetez un pack de messages.',
+    labelEmail: 'Adresse email', hintEmail: 'Les adresses jetables (mailinator, yopmail...) ne sont pas acceptées.',
+    labelPhone: 'Numéro de téléphone',
+    labelPassword: 'Mot de passe', labelPasswordConfirm: 'Confirmer le mot de passe',
+    consentPre: "J'accepte que mes données (email, téléphone, adresse IP et localisation approximative) soient enregistrées par Vitosoli pour la gestion de mon compte, conformément à notre ",
+    consentLink: 'politique de confidentialité', consentPost: '.',
+    consentAlert: 'Politique de confidentialité : vos données ne sont jamais partagées avec des tiers et sont utilisées uniquement pour la gestion de votre compte Vitosoli.',
+    submitBtn: 'Créer mon compte', loginLink: 'Déjà un compte ? Se connecter', backLink: '← Retour à Vitosoli',
+    errConsent: 'Vous devez accepter la politique de confidentialité.',
+    errPasswordLen: 'Le mot de passe doit contenir au moins 8 caractères.',
+    errPasswordMatch: 'Les mots de passe ne correspondent pas.',
+    errServer: 'Erreur de connexion au serveur. Réessayez.',
+    errGeneric: 'Une erreur est survenue.',
+    sending: 'Envoi en cours...'
+  },
+  en: {
+    title: 'Create your account',
+    subtitle: '5 free messages + 1 file (image/PDF). Just confirm your email to activate your account.',
+    guestBanner: 'You have used your free messages. Create an account to continue, or buy a message pack.',
+    labelEmail: 'Email address', hintEmail: 'Disposable addresses (mailinator, yopmail...) are not accepted.',
+    labelPhone: 'Phone number',
+    labelPassword: 'Password', labelPasswordConfirm: 'Confirm password',
+    consentPre: "I agree that my data (email, phone, IP address and approximate location) will be stored by Vitosoli to manage my account, in accordance with our ",
+    consentLink: 'privacy policy', consentPost: '.',
+    consentAlert: 'Privacy policy: your data is never shared with third parties and is used only to manage your Vitosoli account.',
+    submitBtn: 'Create my account', loginLink: 'Already have an account? Log in', backLink: '← Back to Vitosoli',
+    errConsent: 'You must accept the privacy policy.',
+    errPasswordLen: 'Password must be at least 8 characters.',
+    errPasswordMatch: 'Passwords do not match.',
+    errServer: 'Connection error. Please try again.',
+    errGeneric: 'An error occurred.',
+    sending: 'Sending...'
+  },
+  it: {
+    title: 'Crea il tuo account',
+    subtitle: '5 messaggi gratuiti + 1 file (immagine/PDF). Conferma la tua email per attivare l\'account.',
+    guestBanner: 'Hai utilizzato i tuoi messaggi gratuiti. Crea un account per continuare, oppure acquista un pacchetto di messaggi.',
+    labelEmail: 'Indirizzo email', hintEmail: 'Gli indirizzi usa e getta (mailinator, yopmail...) non sono accettati.',
+    labelPhone: 'Numero di telefono',
+    labelPassword: 'Password', labelPasswordConfirm: 'Conferma password',
+    consentPre: "Accetto che i miei dati (email, telefono, indirizzo IP e posizione approssimativa) vengano registrati da Vitosoli per la gestione del mio account, in conformità con la nostra ",
+    consentLink: 'informativa sulla privacy', consentPost: '.',
+    consentAlert: 'Informativa sulla privacy: i tuoi dati non vengono mai condivisi con terze parti e sono utilizzati solo per la gestione del tuo account Vitosoli.',
+    submitBtn: 'Crea il mio account', loginLink: 'Hai già un account? Accedi', backLink: '← Torna a Vitosoli',
+    errConsent: 'Devi accettare l\'informativa sulla privacy.',
+    errPasswordLen: 'La password deve contenere almeno 8 caratteri.',
+    errPasswordMatch: 'Le password non corrispondono.',
+    errServer: 'Errore di connessione al server. Riprova.',
+    errGeneric: 'Si è verificato un errore.',
+    sending: 'Invio in corso...'
+  },
+  es: {
+    title: 'Crea tu cuenta',
+    subtitle: '5 mensajes gratis + 1 archivo (imagen/PDF). Solo confirma tu email para activar tu cuenta.',
+    guestBanner: 'Has usado tus mensajes gratuitos. Crea una cuenta para continuar, o compra un paquete de mensajes.',
+    labelEmail: 'Correo electrónico', hintEmail: 'No se aceptan direcciones desechables (mailinator, yopmail...).',
+    labelPhone: 'Número de teléfono',
+    labelPassword: 'Contraseña', labelPasswordConfirm: 'Confirmar contraseña',
+    consentPre: "Acepto que mis datos (email, teléfono, dirección IP y ubicación aproximada) sean registrados por Vitosoli para gestionar mi cuenta, de acuerdo con nuestra ",
+    consentLink: 'política de privacidad', consentPost: '.',
+    consentAlert: 'Política de privacidad: tus datos nunca se comparten con terceros y se usan solo para gestionar tu cuenta Vitosoli.',
+    submitBtn: 'Crear mi cuenta', loginLink: '¿Ya tienes cuenta? Inicia sesión', backLink: '← Volver a Vitosoli',
+    errConsent: 'Debes aceptar la política de privacidad.',
+    errPasswordLen: 'La contraseña debe tener al menos 8 caracteres.',
+    errPasswordMatch: 'Las contraseñas no coinciden.',
+    errServer: 'Error de conexión con el servidor. Inténtalo de nuevo.',
+    errGeneric: 'Se produjo un error.',
+    sending: 'Enviando...'
+  }
+};
+
+const lang = T[UI_LANG] || T['fr'];
+const consentAlertText = lang.consentAlert;
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('pageTitle').textContent = lang.title;
+  document.getElementById('pageSubtitle').textContent = lang.subtitle;
+  document.getElementById('guestBannerText').textContent = lang.guestBanner;
+  document.getElementById('labelEmail').textContent = lang.labelEmail;
+  document.getElementById('hintEmail').textContent = lang.hintEmail;
+  document.getElementById('labelPhone').textContent = lang.labelPhone;
+  document.getElementById('labelPassword').textContent = lang.labelPassword;
+  document.getElementById('labelPasswordConfirm').textContent = lang.labelPasswordConfirm;
+  document.getElementById('submitBtn').textContent = lang.submitBtn;
+  document.getElementById('loginLink').textContent = lang.loginLink;
+  document.getElementById('backLink').textContent = lang.backLink;
+
+  const consentLabel = document.getElementById('labelConsent');
+  consentLabel.innerHTML = lang.consentPre + '<a href="#" onclick="alert(consentAlertText); return false;" id="consentLink">' + lang.consentLink + '</a>' + lang.consentPost;
+});
+
 // Show guest limit banner if redirected from chat
 const params = new URLSearchParams(window.location.search);
 if(params.get('reason') === 'guest_limit'){
@@ -176,20 +274,20 @@ form.addEventListener('submit', async (e) => {
   msgBox.style.display = 'none';
 
   if(!consent){
-    showMessage('error', 'Vous devez accepter la politique de confidentialité.');
+    showMessage('error', lang.errConsent);
     return;
   }
   if(password.length < 8){
-    showMessage('error', 'Le mot de passe doit contenir au moins 8 caractères.');
+    showMessage('error', lang.errPasswordLen);
     return;
   }
   if(password !== passwordConfirm){
-    showMessage('error', 'Les mots de passe ne correspondent pas.');
+    showMessage('error', lang.errPasswordMatch);
     return;
   }
 
   submitBtn.disabled = true;
-  submitBtn.innerHTML = '<span class="spinner"></span> Envoi en cours...';
+  submitBtn.innerHTML = '<span class="spinner"></span> ' + lang.sending;
 
   try {
     const response = await fetch('https://vitosoli.onrender.com/register', {
@@ -209,14 +307,14 @@ form.addEventListener('submit', async (e) => {
       document.getElementById('consent').disabled = true;
       submitBtn.style.display = 'none';
     } else {
-      showMessage('error', '❌ ' + (data.error || 'Une erreur est survenue.'));
+      showMessage('error', '❌ ' + (data.error || lang.errGeneric));
       submitBtn.disabled = false;
-      submitBtn.textContent = 'Créer mon compte';
+      submitBtn.textContent = lang.submitBtn;
     }
   } catch(err){
-    showMessage('error', '❌ Erreur de connexion au serveur. Réessayez.');
+    showMessage('error', '❌ ' + lang.errServer);
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Créer mon compte';
+    submitBtn.textContent = lang.submitBtn;
   }
 });
 
