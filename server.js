@@ -673,12 +673,17 @@ const PACK_LARGE_FILE = 20    // 300/15 = 20 fichiers max
 const PAID_FILE_COST = 15     // "cout" en messages d'un fichier impute sur le solde paye
 
 app.post('/chat', rateLimiter, async (req, res) => {
-  const { messages } = req.body
+  const { messages, maxTokens } = req.body
   const ip = getClientIp(req)
 
   if (!validateMessages(messages)) {
     return res.status(400).json({ error: 'Format de messages invalide.' })
   }
+
+  // maxTokens optionnel envoye par le client (ex: pour un menu de la semaine plus long),
+  // toujours plafonne cote serveur pour eviter tout abus
+  const requestedMaxTokens = typeof maxTokens === 'number' ? maxTokens : 800
+  const finalMaxTokens = Math.min(Math.max(requestedMaxTokens, 100), 2000)
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
   const hasAttachment = lastUserMsg && Array.isArray(lastUserMsg.content) &&
@@ -809,7 +814,7 @@ app.post('/chat', rateLimiter, async (req, res) => {
   try {
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 800,
+      max_tokens: finalMaxTokens,
       system: systemPrompt,
       tools: [{ type: 'web_search_20250305', name: 'web_search' }],
       messages: cleanMessages
