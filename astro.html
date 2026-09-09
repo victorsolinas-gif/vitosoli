@@ -581,7 +581,8 @@ async function requestAnalysis(chart, placeName, date, time){
       headers: headers,
       body: JSON.stringify({
         messages: [{ role: 'user', content: 'Voici ma carte astrale, merci de me faire une analyse complète :\\n\\n' + summary }],
-        system: systemPrompt
+        system: systemPrompt,
+        maxTokens: 1600
       })
     });
 
