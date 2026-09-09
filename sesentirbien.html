@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Vitosoli — Se Sentir Bien</title>
+<title>Vitosoli — Manger Bien</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#07080f;--surface:#0d0f1c;--surface2:#171728;--surface3:#1f2038;
   --border:rgba(255,255,255,0.07);--text:#eeeaff;--muted:#6b6d8a;
-  --grad:linear-gradient(135deg,#f472b6,#a78bfa,#38bdf8);
+  --grad:linear-gradient(135deg,#00d4a0,#00b4d8,#7c5cfc);
   --green:#00ff88;
   --safe-bottom:env(safe-area-inset-bottom,0px);--safe-top:env(safe-area-inset-top,0px);
 }
@@ -18,8 +18,8 @@ html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:'In
 body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(40px + var(--safe-bottom));max-width:680px;margin:0 auto}
 
 .orb{position:fixed;border-radius:50%;pointer-events:none;z-index:0;filter:blur(110px);opacity:.15}
-.orb-a{width:480px;height:480px;top:-150px;right:-120px;background:radial-gradient(circle,#f472b6,transparent)}
-.orb-b{width:420px;height:420px;bottom:-120px;left:-130px;background:radial-gradient(circle,#38bdf8,transparent)}
+.orb-a{width:480px;height:480px;top:-150px;right:-120px;background:radial-gradient(circle,#00d4a0,transparent)}
+.orb-b{width:420px;height:420px;bottom:-120px;left:-130px;background:radial-gradient(circle,#7c5cfc,transparent)}
 
 .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;position:relative;z-index:1}
 .header-left{display:flex;align-items:center;gap:10px}
@@ -34,61 +34,52 @@ body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(4
 .hero{text-align:center;margin-bottom:28px;position:relative;z-index:1}
 .hero-icon{font-size:40px;margin-bottom:8px}
 .hero h1{font-family:'Syne',sans-serif;font-weight:800;font-size:24px;margin-bottom:8px;
-  background:linear-gradient(135deg,#f472b6,#a78bfa,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  background:linear-gradient(135deg,#00d4a0,#00b4d8,#7c5cfc);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .hero p{font-size:13px;color:var(--muted);line-height:1.6;max-width:440px;margin:0 auto}
 
 .disclaimer{
   position:relative;z-index:1;
-  background:rgba(56,189,248,.06);border:1px solid rgba(56,189,248,.2);
+  background:rgba(255,209,102,.06);border:1px solid rgba(255,209,102,.2);
   border-radius:14px;padding:14px 16px;margin-bottom:20px;
-  font-size:12px;color:#38bdf8;line-height:1.6;display:flex;gap:10px;align-items:flex-start;
+  font-size:12px;color:#ffd166;line-height:1.6;display:flex;gap:10px;align-items:flex-start;
 }
 .disclaimer span:first-child{font-size:16px;flex-shrink:0}
 .disclaimer span:last-child{flex:1;min-width:0;word-wrap:break-word}
-
-.crisis-box{
-  position:relative;z-index:1;
-  background:rgba(255,107,107,.06);border:1px solid rgba(255,107,107,.25);
-  border-radius:14px;padding:16px;margin-bottom:20px;
-  font-size:13px;color:#ff9999;line-height:1.7;
-}
-.crisis-box strong{color:#ffb3b3;display:block;margin-bottom:6px;font-size:13px}
-.crisis-box a{color:#ffb3b3}
 
 .form-card{
   position:relative;z-index:1;background:var(--surface);border:1px solid var(--border);
   border-radius:20px;padding:24px;margin-bottom:20px;
 }
-.field{margin-bottom:16px}
+.field{margin-bottom:14px}
 .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px}
-.field input, .field textarea{
+.field input, .field select{
   width:100%;background:var(--surface2);border:1.5px solid var(--border);
   border-radius:10px;padding:12px 14px;color:var(--text);
   font-size:15px;font-family:'Inter',sans-serif;outline:none;
   transition:border-color .2s;
 }
-.field input:focus, .field textarea:focus{border-color:rgba(167,139,250,.5)}
-.field textarea{resize:vertical;min-height:80px;line-height:1.5}
+.field input:focus, .field select:focus{border-color:rgba(0,212,160,.5)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .field-hint{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.5}
 
-.theme-grid{display:flex;flex-direction:column;gap:8px}
-.theme-btn{
-  display:flex;align-items:center;gap:12px;
-  padding:14px;border-radius:12px;border:1.5px solid var(--border);
-  background:var(--surface2);cursor:pointer;transition:all .15s;text-align:left;
-}
-.theme-btn.active{border-color:rgba(167,139,250,.5);background:rgba(167,139,250,.1)}
-.theme-btn .icon{font-size:20px;flex-shrink:0}
-.theme-btn .label{font-size:13px;font-weight:600;color:var(--text)}
-.theme-btn .sub{font-size:11px;color:var(--muted);margin-top:2px}
-
-.intensity-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.intensity-btn{
-  padding:10px 4px;border-radius:10px;border:1.5px solid var(--border);
-  background:var(--surface2);color:var(--muted);font-size:11px;font-weight:500;
+.sex-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sex-btn{
+  padding:12px;border-radius:10px;border:1.5px solid var(--border);
+  background:var(--surface2);color:var(--muted);font-size:14px;font-weight:500;
   cursor:pointer;text-align:center;transition:all .15s;
 }
-.intensity-btn.active{border-color:rgba(167,139,250,.5);background:rgba(167,139,250,.1);color:#a78bfa}
+.sex-btn.active{border-color:rgba(0,212,160,.5);background:rgba(0,212,160,.1);color:#00d4a0}
+
+.goal-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.goal-btn{
+  padding:14px 8px;border-radius:12px;border:1.5px solid var(--border);
+  background:var(--surface2);color:var(--muted);cursor:pointer;text-align:center;
+  transition:all .15s;
+}
+.goal-btn.active{border-color:rgba(0,212,160,.5);background:rgba(0,212,160,.1)}
+.goal-btn .num{font-family:'Syne',sans-serif;font-weight:800;font-size:20px;color:var(--text)}
+.goal-btn.active .num{color:#00d4a0}
+.goal-btn .unit{font-size:10px;color:var(--muted);margin-top:2px}
 
 .btn{
   width:100%;padding:14px;border-radius:12px;border:none;
@@ -116,6 +107,17 @@ body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(4
 .results{display:none;position:relative;z-index:1}
 .results.visible{display:block}
 
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;padding:16px 10px;text-align:center;
+}
+.stat-card .icon{font-size:20px;margin-bottom:6px}
+.stat-card .label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.stat-card .value{font-family:'Syne',sans-serif;font-weight:800;font-size:16px;
+  background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-card .sub{font-size:10px;color:var(--muted);margin-top:2px}
+
 .plan-card{
   background:var(--surface);border:1px solid var(--border);
   border-radius:20px;padding:24px;margin-bottom:16px;
@@ -130,7 +132,7 @@ body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(4
   border:1px solid var(--border);color:var(--muted);font-size:13px;
   cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px;
 }
-.new-form-btn:hover{border-color:rgba(167,139,250,.4);color:var(--text)}
+.new-form-btn:hover{border-color:rgba(0,212,160,.4);color:var(--text)}
 </style>
 </head>
 <body>
@@ -140,8 +142,8 @@ body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(4
 
 <div class="header">
   <div class="header-left">
-    <div class="logo-icon">🌱</div>
-    <div class="header-title">Se Sentir Bien</div>
+    <div class="logo-icon">🥗</div>
+    <div class="header-title">Manger Bien</div>
   </div>
   <a href="chat-ia.html" class="back-btn">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
@@ -150,105 +152,104 @@ body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(4
 
 <div id="formView">
   <div class="hero">
-    <div class="hero-icon">🌱</div>
-    <h1>Un espace pour souffler</h1>
-    <p>Partagez ce qui vous préoccupe en ce moment, Vitosoli vous propose des pistes de réflexion bienveillantes et concrètes.</p>
+    <div class="hero-icon">🥗</div>
+    <h1>Un menu sur-mesure</h1>
+    <p>Renseignez quelques informations pour obtenir un plan alimentaire de la semaine adapté à votre objectif, avec des conseils d'activité physique légère.</p>
   </div>
 
   <div class="disclaimer">
     <span>ℹ️</span>
-    <span>Ceci n'est pas un accompagnement psychologique ni un diagnostic. Pour un soutien personnalisé, un(e) psychologue ou un médecin reste la meilleure ressource.</span>
-  </div>
-
-  <div class="crisis-box">
-    <strong>🆘 En cas de détresse importante</strong>
-    Si vous traversez un moment particulièrement difficile, vous pouvez contacter le <strong>3114</strong> (numéro national de prévention du suicide, gratuit, 24h/24, 7j/7) ou en parler à un professionnel de santé.
+    <span>Ces conseils sont généraux et ne remplacent pas l'avis d'un médecin ou d'un(e) diététicien(ne), en particulier en cas de pathologie, grossesse, ou trouble du comportement alimentaire. La perte de poids est volontairement plafonnée à 3 kg/mois, un rythme plus rapide pouvant être dangereux pour la santé.</span>
   </div>
 
   <div class="form-card">
     <div class="field">
-      <label for="age">Votre âge</label>
-      <input type="number" id="age" placeholder="45" min="15" max="110" required>
+      <label>Sexe</label>
+      <div class="sex-toggle">
+        <div class="sex-btn active" id="sexF" onclick="selectSex('F')">Femme</div>
+        <div class="sex-btn" id="sexM" onclick="selectSex('M')">Homme</div>
+      </div>
     </div>
 
-    <div class="field">
-      <label>Ce qui vous préoccupe le plus en ce moment</label>
-      <div class="theme-grid">
-        <div class="theme-btn active" id="themeAging" onclick="selectTheme('aging')">
-          <div class="icon">🪞</div>
-          <div>
-            <div class="label">Vieillissement & image corporelle</div>
-            <div class="sub">Rapport au corps qui change, à l'apparence</div>
-          </div>
-        </div>
-        <div class="theme-btn" id="themePurpose" onclick="selectTheme('purpose')">
-          <div class="icon">🧭</div>
-          <div>
-            <div class="label">Quête de sens & nouveaux projets</div>
-            <div class="sub">Envie de renouveau, questionnements sur la suite</div>
-          </div>
-        </div>
-        <div class="theme-btn" id="themeAnxiety" onclick="selectTheme('anxiety')">
-          <div class="icon">💭</div>
-          <div>
-            <div class="label">Anxiété ou baisse de moral</div>
-            <div class="sub">Liées à ces transitions de vie</div>
-          </div>
-        </div>
+    <div class="field-row">
+      <div class="field">
+        <label for="age">Âge</label>
+        <input type="number" id="age" placeholder="35" min="15" max="100" required>
+      </div>
+      <div class="field">
+        <label for="height">Taille (cm)</label>
+        <input type="number" id="height" placeholder="170" min="120" max="230" required>
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="weight">Poids actuel (kg)</label>
+        <input type="number" id="weight" placeholder="75" min="30" max="300" step="0.1" required>
+      </div>
+      <div class="field">
+        <label for="waist">Tour de ventre (cm)</label>
+        <input type="number" id="waist" placeholder="90" min="50" max="200" required>
       </div>
     </div>
 
     <div class="field">
-      <label>Intensité ressentie</label>
-      <div class="intensity-row">
-        <div class="intensity-btn active" id="int1" onclick="selectIntensity(1)">Légère</div>
-        <div class="intensity-btn" id="int2" onclick="selectIntensity(2)">Modérée</div>
-        <div class="intensity-btn" id="int3" onclick="selectIntensity(3)">Marquée</div>
-        <div class="intensity-btn" id="int4" onclick="selectIntensity(4)">Forte</div>
-      </div>
+      <label for="wrist">Tour de poignet (cm)</label>
+      <input type="number" id="wrist" placeholder="16" min="10" max="25" step="0.1" required>
+      <div class="field-hint">Mesuré juste sous l'os du poignet — sert à estimer votre corpulence (charpente osseuse fine, moyenne ou large).</div>
     </div>
 
     <div class="field">
-      <label for="details">Voulez-vous préciser ce que vous ressentez ? (facultatif)</label>
-      <textarea id="details" placeholder="En quelques mots, ce que vous vivez en ce moment..."></textarea>
+      <label>Objectif de perte de poids par mois</label>
+      <div class="goal-grid">
+        <div class="goal-btn active" id="goal1" onclick="selectGoal(1)">
+          <div class="num">1</div>
+          <div class="unit">kg / mois</div>
+        </div>
+        <div class="goal-btn" id="goal2" onclick="selectGoal(2)">
+          <div class="num">2</div>
+          <div class="unit">kg / mois</div>
+        </div>
+        <div class="goal-btn" id="goal3" onclick="selectGoal(3)">
+          <div class="num">3</div>
+          <div class="unit">kg / mois</div>
+        </div>
+      </div>
+      <div class="field-hint">⚠️ Au-delà de 3 kg/mois, la perte de poids devient dangereuse pour la santé — cette limite n'est pas modifiable.</div>
     </div>
 
-    <button class="btn" id="generateBtn" onclick="generateAdvice()">✨ Obtenir des pistes de réflexion</button>
+    <button class="btn" id="generateBtn" onclick="generatePlan()">✨ Générer mon menu de la semaine</button>
 
     <div class="error-box" id="errorBox"></div>
   </div>
 </div>
 
 <div id="resultsView" class="results">
-  <div class="crisis-box" style="margin-bottom:16px">
-    <strong>🆘 Besoin d'en parler maintenant ?</strong>
-    <strong style="color:#ffb3b3;font-weight:400">3114</strong> — numéro national de prévention du suicide, gratuit, 24h/24.
-  </div>
+  <div class="stats-grid" id="statsGrid"></div>
 
   <div class="plan-card">
-    <h3>🌱 Quelques pistes pour vous</h3>
+    <h3>🍽️ Votre menu de la semaine</h3>
     <div id="planContent">
-      <div class="plan-loading"><span class="spinner" style="border-top-color:#a78bfa"></span> Vitosoli prépare une réponse pour vous...</div>
+      <div class="plan-loading"><span class="spinner" style="border-top-color:#00d4a0"></span> Vitosoli prépare votre menu personnalisé...</div>
     </div>
   </div>
 
-  <button class="new-form-btn" onclick="resetForm()">🔄 Recommencer</button>
+  <button class="new-form-btn" onclick="resetForm()">🔄 Refaire le formulaire</button>
 </div>
 
 <script>
-let selectedTheme = 'aging';
-let selectedIntensity = 1;
+let selectedSex = 'F';
+let selectedGoal = 1;
 
-function selectTheme(theme){
-  selectedTheme = theme;
-  document.getElementById('themeAging').classList.toggle('active', theme === 'aging');
-  document.getElementById('themePurpose').classList.toggle('active', theme === 'purpose');
-  document.getElementById('themeAnxiety').classList.toggle('active', theme === 'anxiety');
+function selectSex(sex){
+  selectedSex = sex;
+  document.getElementById('sexF').classList.toggle('active', sex === 'F');
+  document.getElementById('sexM').classList.toggle('active', sex === 'M');
 }
 
-function selectIntensity(level){
-  selectedIntensity = level;
-  [1,2,3,4].forEach(i => document.getElementById('int'+i).classList.toggle('active', i === level));
+function selectGoal(goal){
+  selectedGoal = goal;
+  [1,2,3].forEach(g => document.getElementById('goal'+g).classList.toggle('active', g === goal));
 }
 
 function showError(msg){
@@ -257,30 +258,83 @@ function showError(msg){
   errorBox.style.display = 'block';
 }
 
-async function generateAdvice(){
+function calculateBMI(weightKg, heightCm){
+  const heightM = heightCm / 100;
+  return weightKg / (heightM * heightM);
+}
+
+function bmiCategory(bmi){
+  if(bmi < 18.5) return { label: 'Insuffisance pondérale', color: '#38bdf8' };
+  if(bmi < 25) return { label: 'Corpulence normale', color: '#00ff88' };
+  if(bmi < 30) return { label: 'Surpoids', color: '#ffd166' };
+  if(bmi < 35) return { label: 'Obésité modérée', color: '#ff8c42' };
+  return { label: 'Obésité sévère', color: '#ff6b6b' };
+}
+
+function frameSize(wristCm, heightCm, sex){
+  const ratio = heightCm / wristCm;
+  if(sex === 'F'){
+    if(ratio > 11.0) return 'fine';
+    if(ratio >= 10.1) return 'moyenne';
+    return 'large';
+  } else {
+    if(ratio > 10.4) return 'fine';
+    if(ratio >= 9.6) return 'moyenne';
+    return 'large';
+  }
+}
+
+const frameLabels = { fine: 'Fine', moyenne: 'Moyenne', large: 'Large' };
+
+function estimateBMR(weightKg, heightCm, age, sex){
+  if(sex === 'F') return 10*weightKg + 6.25*heightCm - 5*age - 161;
+  return 10*weightKg + 6.25*heightCm - 5*age + 5;
+}
+
+async function generatePlan(){
   const age = parseInt(document.getElementById('age').value);
-  const details = document.getElementById('details').value.trim();
+  const height = parseFloat(document.getElementById('height').value);
+  const weight = parseFloat(document.getElementById('weight').value);
+  const waist = parseFloat(document.getElementById('waist').value);
+  const wrist = parseFloat(document.getElementById('wrist').value);
 
   const errorBox = document.getElementById('errorBox');
   errorBox.style.display = 'none';
 
-  if(!age){
-    showError('Merci d\'indiquer votre âge.');
+  if(!age || !height || !weight || !waist || !wrist){
+    showError('Merci de remplir tous les champs.');
     return;
   }
 
   const btn = document.getElementById('generateBtn');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Un instant...';
+  btn.innerHTML = '<span class="spinner"></span> Calcul en cours...';
+
+  const bmi = calculateBMI(weight, height);
+  const category = bmiCategory(bmi);
+  const frame = frameSize(wrist, height, selectedSex);
+  const bmr = estimateBMR(weight, height, age, selectedSex);
+
+  displayStats(bmi, category, frame, waist, selectedSex);
 
   document.getElementById('formView').style.display = 'none';
   document.getElementById('resultsView').classList.add('visible');
   window.scrollTo(0,0);
 
-  requestAdvice({ age, theme: selectedTheme, intensity: selectedIntensity, details });
+  requestMealPlan({ age, height, weight, waist, wrist, sex: selectedSex, goal: selectedGoal, bmi, category, frame, bmr });
 
   btn.disabled = false;
-  btn.innerHTML = '✨ Obtenir des pistes de réflexion';
+  btn.innerHTML = '✨ Générer mon menu de la semaine';
+}
+
+function displayStats(bmi, category, frame, waist, sex){
+  const waistAlertThreshold = sex === 'F' ? 88 : 102;
+  const waistAlert = waist >= waistAlertThreshold;
+
+  document.getElementById('statsGrid').innerHTML =
+    '<div class="stat-card"><div class="icon">⚖️</div><div class="label">IMC</div><div class="value">' + bmi.toFixed(1) + '</div><div class="sub" style="color:' + category.color + '">' + category.label + '</div></div>' +
+    '<div class="stat-card"><div class="icon">🦴</div><div class="label">Charpente</div><div class="value">' + frameLabels[frame] + '</div><div class="sub">Selon tour de poignet</div></div>' +
+    '<div class="stat-card"><div class="icon">📏</div><div class="label">Tour de ventre</div><div class="value">' + waist + ' cm</div><div class="sub" style="color:' + (waistAlert ? '#ff8c42' : '#00ff88') + '">' + (waistAlert ? 'À surveiller' : 'Dans la norme') + '</div></div>';
 }
 
 function resetForm(){
@@ -289,20 +343,15 @@ function resetForm(){
   window.scrollTo(0,0);
 }
 
-async function requestAdvice(data){
-  const themeLabels = {
-    aging: 'le rapport au vieillissement et à l\'image corporelle',
-    purpose: 'la quête de sens et l\'envie de nouveaux projets personnels',
-    anxiety: 'l\'anxiété ou la baisse de moral liée à des transitions de vie'
-  };
-  const intensityLabels = { 1: 'légère', 2: 'modérée', 3: 'marquée', 4: 'forte' };
+async function requestMealPlan(data){
+  const goalLabels = { 1: '1 kg par mois (rythme doux)', 2: '2 kg par mois (rythme modéré)', 3: '3 kg par mois (rythme actif, le maximum raisonnable)' };
 
-  let summary = 'Âge : ' + data.age + ' ans.\n';
-  summary += 'Préoccupation principale : ' + themeLabels[data.theme] + '.\n';
-  summary += 'Intensité ressentie : ' + intensityLabels[data.intensity] + '.\n';
-  if(data.details) summary += 'Ce que la personne partage : ' + data.details;
+  const summary = 'Profil : ' + (data.sex === 'F' ? 'Femme' : 'Homme') + ', ' + data.age + ' ans, ' + data.height + ' cm, ' + data.weight + ' kg.\n' +
+    'Tour de ventre : ' + data.waist + ' cm. Tour de poignet : ' + data.wrist + ' cm (charpente ' + frameLabels[data.frame].toLowerCase() + ').\n' +
+    'IMC : ' + data.bmi.toFixed(1) + ' (' + data.category.label + ').\n' +
+    'Objectif : perdre ' + goalLabels[data.goal] + '.';
 
-  const systemPrompt = "Tu es Vitosoli, une présence bienveillante et à l'écoute, mais tu n'es ni psychologue ni médecin et tu ne dois jamais prétendre l'être ni poser de diagnostic. À partir de ce que la personne partage, propose une réponse chaleureuse et structurée en français : commence par accueillir ce qu'elle ressent avec empathie sans minimiser ni dramatiser, puis propose 3 à 4 pistes de réflexion ou petites actions concrètes et douces adaptées au thème (vieillissement/image corporelle, quête de sens, ou anxiété liée aux transitions de vie). Reste concret et évite les généralités creuses type 'prenez soin de vous'. Si l'intensité indiquée est 'forte' ou si les propos suggèrent une détresse importante, encourage chaleureusement mais clairement à en parler à un professionnel (médecin, psychologue) ou à contacter le 3114, sans être alarmiste. Termine toujours par une phrase rappelant que ces pistes ne remplacent pas un accompagnement professionnel. Ne mentionne jamais que tu es une IA. Ne pose pas de diagnostic (ex: ne dis jamais 'vous faites une dépression').";
+  const systemPrompt = "Tu es Vitosoli, un coach en nutrition bienveillant et pédagogue, mais tu n'es pas un médecin ni un(e) diététicien(ne) diplômé(e) et tu ne dois jamais prétendre l'être. À partir du profil fourni, propose un plan alimentaire équilibré pour une semaine (7 jours, 3 repas + 1 collation par jour, format concis avec des titres de jour clairs) adapté à l'objectif de perte de poids indiqué, qui ne doit JAMAIS dépasser le rythme demandé par l'utilisateur. Base-toi sur des principes nutritionnels reconnus (déficit calorique modéré et sûr, protéines suffisantes, fibres, hydratation). Termine par une section '🏃 Activité physique légère conseillée' avec 3-4 suggestions d'exercices doux adaptés (marche, natation, vélo, étirements) et leur fréquence recommandée. Ajoute une phrase finale rappelant que ce plan est indicatif et qu'un avis médical ou diététique est recommandé pour un suivi personnalisé, en particulier en cas de problème de santé. Ne mentionne jamais que tu es une IA. Reste concret, évite les généralités vagues.";
 
   try {
     const headers = { 'Content-Type': 'application/json' };
@@ -313,8 +362,9 @@ async function requestAdvice(data){
       method: 'POST',
       headers: headers,
       body: JSON.stringify({
-        messages: [{ role: 'user', content: 'Voici ce que je traverse, merci de m\'accompagner avec quelques pistes :\n\n' + summary }],
-        system: systemPrompt
+        messages: [{ role: 'user', content: 'Voici mon profil, merci de me proposer un menu de la semaine adapté :\n\n' + summary }],
+        system: systemPrompt,
+        maxTokens: 2000
       })
     });
 
@@ -333,7 +383,7 @@ async function requestAdvice(data){
     }
 
     if(data2.error){
-      content.innerHTML = '<p style="color:#ff6b6b;font-size:13px">Une erreur est survenue. Réessayez plus tard.</p>';
+      content.innerHTML = '<p style="color:#ff6b6b;font-size:13px">Une erreur est survenue lors de la génération du menu. Réessayez plus tard.</p>';
       return;
     }
 
