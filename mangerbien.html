@@ -396,7 +396,7 @@ function downloadMenuPdf(){
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(18);
   doc.setTextColor(0, 150, 120);
-  doc.text('Vitosoli — Menu de la semaine', marginLeft, y);
+  doc.text('Vitosoli - Menu de la semaine', marginLeft, y);
   y += 10;
   doc.setDrawColor(0, 180, 150);
   doc.setLineWidth(0.5);
@@ -425,13 +425,15 @@ function downloadMenuPdf(){
       // Ignore la ligne d'en-tete de tableau (ex: "Repas | Menu") qui ne contient aucune information utile
       const normalizedCells = cells.map(c => c.toLowerCase());
       if(normalizedCells.length === 2 && normalizedCells.includes('repas') && normalizedCells.includes('menu')){ return; }
-      line = cells.map(c => stripEmojis(c)).filter(c => c !== '').join('  —  ');
+      line = cells.map(c => stripEmojis(c)).filter(c => c !== '').join(' - ');
     } else {
       // Ignore aussi la meme ligne d'en-tete si elle apparait hors tableau (ex: "Repas — Menu")
       if(/^repas\s*(—|-|\|)\s*menu$/i.test(line)){ return; }
-      line = line.replace(/^#{1,6}\s*/, '').replace(/\*\*/g, '').replace(/^[-*]\s+/, '• ').replace(/^>\s*/, '');
+      line = line.replace(/^#{1,6}\s*/, '').replace(/\*\*/g, '').replace(/^[-*]\s+/, '- ').replace(/^>\s*/, '');
       line = stripEmojis(line);
     }
+
+    line = normalizeForPdf(line);
 
     if(line === '') return;
 
@@ -467,7 +469,7 @@ function downloadMenuPdf(){
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 160);
-    doc.text('Généré par Vitosoli — ce menu est indicatif et ne remplace pas l\'avis d\'un professionnel de santé.', marginLeft, pageHeight - 10);
+    doc.text('Généré par Vitosoli - ce menu est indicatif et ne remplace pas l\'avis d\'un professionnel de santé.', marginLeft, pageHeight - 10);
     doc.text(String(i) + ' / ' + pageCount, pageWidth - marginRight, pageHeight - 10, { align: 'right' });
   }
 
@@ -538,6 +540,17 @@ async function requestMealPlan(data){
 
 // Supprime les emojis et symboles Unicode qui peuvent s'afficher de façon corrompue
 // (glyphes manquants, espacement casse) selon la police/le rendu du navigateur ou du PDF
+// Convertit les caracteres typographiques Unicode (tirets longs, apostrophes courbes...)
+// en equivalents ASCII simples : la police Helvetica standard de jsPDF ne les supporte pas
+// et les affiche comme des symboles corrompus.
+function normalizeForPdf(str){
+  return str
+    .replace(/[\u2014\u2013]/g, '-')   // — et – -> -
+    .replace(/[\u2018\u2019]/g, "'")   // ' et ' -> '
+    .replace(/[\u201C\u201D]/g, '"')   // " et " -> "
+    .replace(/\u2026/g, '...');        // … -> ...
+}
+
 function stripEmojis(str){
   return str
     .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}\u{1F000}-\u{1F0FF}\u{1F100}-\u{1F1FF}]/gu, '')
@@ -554,3 +567,4 @@ function escapeHtml(text){
 </script>
 </body>
 </html>
+
