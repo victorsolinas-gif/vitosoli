@@ -403,15 +403,10 @@ function downloadMenuPdf(){
   doc.line(marginLeft, y, pageWidth - marginRight, y);
   y += 10;
 
-  // Nettoyage markdown + emojis, et decoupage en lignes
+  // Nettoyage markdown et decoupage en lignes (les emojis sont deja retires en amont)
   const rawLines = lastMenuText.split('\n');
 
   doc.setTextColor(30, 30, 40);
-
-  // Supprime les emojis et autres symboles Unicode non supportes par la police PDF standard
-  function stripEmojis(str){
-    return str.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\uFE0F]/gu, '').trim();
-  }
 
   rawLines.forEach(rawLine => {
     let line = rawLine.trim();
@@ -488,7 +483,7 @@ async function requestMealPlan(data){
   summary += 'IMC : ' + data.bmi.toFixed(1) + ' (' + data.category.label + ').\n';
   summary += 'Objectif : perdre ' + goalLabels[data.goal] + '.';
 
-  const systemPrompt = "Tu es Vitosoli, un coach en nutrition bienveillant et pédagogue, mais tu n'es pas un médecin ni un(e) diététicien(ne) diplômé(e) et tu ne dois jamais prétendre l'être. À partir du profil fourni, propose un plan alimentaire équilibré pour une semaine (7 jours, 3 repas + 1 collation par jour, format concis avec des titres de jour clairs) adapté à l'objectif de perte de poids indiqué, qui ne doit JAMAIS dépasser le rythme demandé par l'utilisateur. Base-toi sur des principes nutritionnels reconnus (déficit calorique modéré et sûr, protéines suffisantes, fibres, hydratation). Si le tour de ventre ou le tour de poignet ne sont pas fournis, base-toi simplement sur l'IMC et le reste du profil sans les mentionner comme manquants. Pour TOUT aliment dont le poids change significativement à la cuisson (riz, pâtes, nouilles, quinoa, boulgour, semoule, légumineuses comme lentilles/pois chiches/haricots secs...), précise SYSTÉMATIQUEMENT et sans exception le mot 'avant cuisson' juste après le poids indiqué, à chaque occurrence dans le menu (exemple : '100g de quinoa avant cuisson', pas juste '100g de quinoa'). N'utilise jamais le mot 'cru' pour cela. Termine par une section '🏃 Activité physique légère conseillée' avec 3-4 suggestions d'exercices doux adaptés (marche, natation, vélo, étirements) et leur fréquence recommandée. Ajoute une phrase finale rappelant que ce plan est indicatif et qu'un avis médical ou diététique est recommandé pour un suivi personnalisé, en particulier en cas de problème de santé. Ne mentionne jamais que tu es une IA. Reste concret, évite les généralités vagues.";
+  const systemPrompt = "Tu es Vitosoli, un coach en nutrition bienveillant et pédagogue, mais tu n'es pas un médecin ni un(e) diététicien(ne) diplômé(e) et tu ne dois jamais prétendre l'être. À partir du profil fourni, propose un plan alimentaire équilibré pour une semaine (7 jours, 3 repas + 1 collation par jour, format concis avec des titres de jour clairs) adapté à l'objectif de perte de poids indiqué, qui ne doit JAMAIS dépasser le rythme demandé par l'utilisateur. Base-toi sur des principes nutritionnels reconnus (déficit calorique modéré et sûr, protéines suffisantes, fibres, hydratation). Si le tour de ventre ou le tour de poignet ne sont pas fournis, base-toi simplement sur l'IMC et le reste du profil sans les mentionner comme manquants. Pour TOUT aliment dont le poids change significativement à la cuisson (riz, pâtes, nouilles, quinoa, boulgour, semoule, légumineuses comme lentilles/pois chiches/haricots secs...), précise SYSTÉMATIQUEMENT et sans exception le mot 'avant cuisson' juste après le poids indiqué, à chaque occurrence dans le menu (exemple : '100g de quinoa avant cuisson', pas juste '100g de quinoa'). N'utilise jamais le mot 'cru' pour cela. IMPORTANT également : indique SYSTÉMATIQUEMENT une quantité précise (en grammes, en nombre d'unités, ou en cuillères mesurables) pour CHAQUE aliment de CHAQUE repas, sans exception — jamais de portion vague comme 'quelques noix', 'un peu de riz' ou 'une poignée', mais toujours un chiffre concret (exemple : '15g de noix', '50g de riz avant cuisson', '2 cuillères à soupe d'huile d'olive'). Termine par une section '🏃 Activité physique légère conseillée' avec 3-4 suggestions d'exercices doux adaptés (marche, natation, vélo, étirements) et leur fréquence recommandée. Ajoute une phrase finale rappelant que ce plan est indicatif et qu'un avis médical ou diététique est recommandé pour un suivi personnalisé, en particulier en cas de problème de santé. Ne mentionne jamais que tu es une IA. Reste concret, évite les généralités vagues.";
 
   try {
     const headers = { 'Content-Type': 'application/json' };
@@ -525,8 +520,11 @@ async function requestMealPlan(data){
     }
 
     // Filet de securite : remplace "X g cru" ou "X g (cru)" par "X g avant cuisson"
-    // au cas ou l'IA n'aurait pas applique la consigne systematiquement
-    const fixedReply = fixCruMentions(data2.reply);
+    // au cas ou l'IA n'aurait pas applique la consigne systematiquement.
+    // Nettoie aussi les caracteres de remplacement Unicode invalides (signe d'un souci d'encodage)
+    // sans toucher aux emojis normaux, qui s'affichent tres bien a l'ecran en HTML.
+    const cleanedReply = data2.reply.replace(/\uFFFD/g, '');
+    const fixedReply = fixCruMentions(cleanedReply);
 
     content.innerHTML = '<div class="plan-text">' + escapeHtml(fixedReply) + '</div>';
     lastMenuText = fixedReply;
@@ -545,6 +543,27 @@ function fixCruMentions(text){
     .replace(/(\d+\s?g)(?!\s*\()\s+crue?\b/gi, '$1 avant cuisson')
     // Evite un double "avant cuisson avant cuisson" si jamais deja present
     .replace(/(avant cuisson)(\s+avant cuisson)+/gi, '$1');
+}
+
+// Filet de securite : corrige les mentions "X g cru" que l'IA aurait pu laisser passer,
+// malgre la consigne, en les remplacant par "X g avant cuisson" (plus clair pour l'utilisateur)
+function fixCruMentions(text){
+  return text
+    // "60g (cru)" -> "60g (avant cuisson)" ; "60g cru" -> "60g avant cuisson"
+    .replace(/(\d+\s?g)\s*\((\s*crue?\s*)\)/gi, '$1 (avant cuisson)')
+    .replace(/(\d+\s?g)(?!\s*\()\s+crue?\b/gi, '$1 avant cuisson')
+    // Evite un double "avant cuisson avant cuisson" si jamais deja present
+    .replace(/(avant cuisson)(\s+avant cuisson)+/gi, '$1');
+}
+
+// Supprime les emojis et symboles Unicode qui peuvent s'afficher de façon corrompue
+// (glyphes manquants, espacement casse) selon la police/le rendu du navigateur ou du PDF
+function stripEmojis(str){
+  return str
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{FE00}-\u{FE0F}\u{1F000}-\u{1F0FF}\u{1F100}-\u{1F1FF}]/gu, '')
+    // Nettoie les espaces multiples laisses par la suppression d'un emoji au milieu d'un mot
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 function escapeHtml(text){
