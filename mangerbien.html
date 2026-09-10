@@ -403,19 +403,37 @@ function downloadMenuPdf(){
   doc.line(marginLeft, y, pageWidth - marginRight, y);
   y += 10;
 
-  // Nettoyage markdown basique et decoupage en lignes
+  // Nettoyage markdown + emojis, et decoupage en lignes
   const rawLines = lastMenuText.split('\n');
 
   doc.setTextColor(30, 30, 40);
+
+  // Supprime les emojis et autres symboles Unicode non supportes par la police PDF standard
+  function stripEmojis(str){
+    return str.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\uFE0F]/gu, '').trim();
+  }
 
   rawLines.forEach(rawLine => {
     let line = rawLine.trim();
     if(line === ''){ y += 3; return; }
 
+    // Ignore les lignes de separation de tableau markdown (|---|---|)
+    if(/^\|?[\s:|-]+\|?$/.test(line) && line.includes('-')){ return; }
+
     // Detecte les titres markdown (### , ## , #)
     const isHeading = /^#{1,3}\s/.test(line);
-    // Retire les marqueurs markdown basiques (# et **) pour un rendu propre en texte
-    line = line.replace(/^#{1,6}\s*/, '').replace(/\*\*/g, '').replace(/^[-*]\s+/, '• ');
+
+    // Detecte une ligne de tableau markdown (| a | b |) et la convertit en texte simple
+    const isTableRow = line.startsWith('|') && line.endsWith('|');
+    if(isTableRow){
+      const cells = line.split('|').map(c => c.trim()).filter(c => c !== '');
+      line = cells.map(c => stripEmojis(c)).filter(c => c !== '').join('  —  ');
+    } else {
+      line = line.replace(/^#{1,6}\s*/, '').replace(/\*\*/g, '').replace(/^[-*]\s+/, '• ').replace(/^>\s*/, '');
+      line = stripEmojis(line);
+    }
+
+    if(line === '') return;
 
     if(isHeading){
       checkPageBreak(10);
