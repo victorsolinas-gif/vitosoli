@@ -139,6 +139,38 @@ body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(4
   cursor:pointer;font-family:'Inter',sans-serif;margin-top:8px;
 }
 .new-form-btn:hover{border-color:rgba(167,139,250,.4);color:var(--text)}
+
+/* Mini-chat de suivi */
+.chat-thread{display:flex;flex-direction:column;gap:14px;margin-top:16px}
+.chat-msg{display:flex;flex-direction:column;gap:4px;max-width:88%}
+.chat-msg.user{align-self:flex-end;align-items:flex-end}
+.chat-msg.ai{align-self:flex-start;align-items:flex-start}
+.chat-msg .bubble{
+  padding:11px 14px;border-radius:14px;font-size:14px;line-height:1.7;white-space:pre-wrap;
+}
+.chat-msg.user .bubble{background:var(--grad);color:#fff;border-bottom-right-radius:4px}
+.chat-msg.ai .bubble{background:var(--surface2);border:1px solid var(--border);color:#d4d2ed;border-top-left-radius:4px}
+
+.chat-input-row{display:flex;gap:8px;margin-top:16px}
+.chat-input-row textarea{
+  flex:1;background:var(--surface2);border:1.5px solid var(--border);
+  border-radius:12px;padding:12px 14px;color:var(--text);
+  font-size:14px;font-family:'Inter',sans-serif;outline:none;resize:none;
+  min-height:44px;max-height:120px;line-height:1.5;
+  transition:border-color .2s;
+}
+.chat-input-row textarea:focus{border-color:rgba(167,139,250,.5)}
+.chat-send-btn{
+  width:44px;height:44px;border-radius:12px;border:none;
+  background:var(--grad);color:#fff;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;flex-shrink:0;transition:opacity .2s;
+}
+.chat-send-btn:disabled{opacity:.4;cursor:not-allowed}
+.chat-typing{display:flex;gap:5px;padding:6px 0}
+.chat-typing span{width:6px;height:6px;border-radius:50%;background:#a78bfa;animation:chatBounce 1.2s infinite}
+.chat-typing span:nth-child(2){animation-delay:.2s}
+.chat-typing span:nth-child(3){animation-delay:.4s}
+@keyframes chatBounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
 </style>
 </head>
 <body>
@@ -246,6 +278,13 @@ body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(4
     <div id="planContent">
       <div class="plan-loading"><span class="spinner" style="border-top-color:#a78bfa"></span> Vitosoli prépare une réponse pour vous...</div>
     </div>
+    <div class="chat-thread" id="chatThread"></div>
+    <div class="chat-input-row" id="chatInputRow" style="display:none">
+      <textarea id="chatInput" placeholder="Répondez ou posez une question..." rows="1" onkeydown="handleChatKey(event)" oninput="autoResizeChat(this)"></textarea>
+      <button class="chat-send-btn" id="chatSendBtn" onclick="sendFollowUp()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
   </div>
 
   <button class="new-form-btn" onclick="resetForm()">🔄 Recommencer</button>
@@ -253,6 +292,9 @@ body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(4
 
 <script>
 let selectedSex = 'F';
+let sesConversationHistory = [];
+let sesSystemPrompt = '';
+let sesIsSending = false;
 let selectedTheme = 'aging';
 let selectedIntensity = 1;
 
@@ -309,6 +351,10 @@ async function generateAdvice(){
 function resetForm(){
   document.getElementById('formView').style.display = 'block';
   document.getElementById('resultsView').classList.remove('visible');
+  document.getElementById('chatThread').innerHTML = '';
+  document.getElementById('chatInputRow').style.display = 'none';
+  document.getElementById('chatInput').value = '';
+  sesConversationHistory = [];
   window.scrollTo(0,0);
 }
 
@@ -326,7 +372,9 @@ async function requestAdvice(data){
   summary += 'Intensité ressentie : ' + intensityLabels[data.intensity] + '.\n';
   if(data.details) summary += 'Ce que la personne partage : ' + data.details;
 
-  const systemPrompt = "Tu es Vitosoli, une présence bienveillante et à l'écoute, mais tu n'es ni psychologue ni médecin et tu ne dois jamais prétendre l'être ni poser de diagnostic. À partir de ce que la personne partage, propose une réponse chaleureuse et structurée en français : commence par accueillir ce qu'elle ressent avec empathie sans minimiser ni dramatiser, puis propose 3 à 4 pistes de réflexion ou petites actions concrètes et douces adaptées au thème (vieillissement/image corporelle, quête de sens, ou anxiété liée aux transitions de vie). Tiens compte du sexe indiqué pour adapter tes exemples et pistes lorsque c'est pertinent (par exemple, les enjeux liés au vieillissement, à l'image corporelle ou aux transitions de vie peuvent différer entre hommes et femmes), sans pour autant tomber dans les stéréotypes de genre. Reste concret et évite les généralités creuses type 'prenez soin de vous'. Si l'intensité indiquée est 'forte' ou si les propos suggèrent une détresse importante, encourage chaleureusement mais clairement à en parler à un professionnel (médecin, psychologue) ou à contacter le 3114, sans être alarmiste. Termine toujours par une phrase rappelant que ces pistes ne remplacent pas un accompagnement professionnel. Ne mentionne jamais que tu es une IA. Ne pose pas de diagnostic (ex: ne dis jamais 'vous faites une dépression').";
+  sesSystemPrompt = "Tu es Vitosoli, une présence bienveillante et à l'écoute, mais tu n'es ni psychologue ni médecin et tu ne dois jamais prétendre l'être ni poser de diagnostic. À partir de ce que la personne partage, propose une réponse chaleureuse et structurée en français : commence par accueillir ce qu'elle ressent avec empathie sans minimiser ni dramatiser, puis propose 3 à 4 pistes de réflexion ou petites actions concrètes et douces adaptées au thème (vieillissement/image corporelle, quête de sens, ou anxiété liée aux transitions de vie). Tiens compte du sexe indiqué pour adapter tes exemples et pistes lorsque c'est pertinent (par exemple, les enjeux liés au vieillissement, à l'image corporelle ou aux transitions de vie peuvent différer entre hommes et femmes), sans pour autant tomber dans les stéréotypes de genre. Reste concret et évite les généralités creuses type 'prenez soin de vous'. Si l'intensité indiquée est 'forte' ou si les propos suggèrent une détresse importante, encourage chaleureusement mais clairement à en parler à un professionnel (médecin, psychologue) ou à contacter le 3114, sans être alarmiste. Termine toujours par une phrase rappelant que ces pistes ne remplacent pas un accompagnement professionnel. Ne mentionne jamais que tu es une IA. Ne pose pas de diagnostic (ex: ne dis jamais 'vous faites une dépression'). Cette conversation peut se poursuivre : si la personne repose une question ou precise sa situation, continue a l'accompagner avec la meme bienveillance et les memes principes.";
+
+  sesConversationHistory = [{ role: 'user', content: 'Voici ce que je traverse, merci de m\'accompagner avec quelques pistes :\n\n' + summary }];
 
   try {
     const headers = { 'Content-Type': 'application/json' };
@@ -337,8 +385,8 @@ async function requestAdvice(data){
       method: 'POST',
       headers: headers,
       body: JSON.stringify({
-        messages: [{ role: 'user', content: 'Voici ce que je traverse, merci de m\'accompagner avec quelques pistes :\n\n' + summary }],
-        system: systemPrompt,
+        messages: sesConversationHistory,
+        system: sesSystemPrompt,
         maxTokens: 1600
       })
     });
@@ -363,9 +411,118 @@ async function requestAdvice(data){
     }
 
     content.innerHTML = '<div class="plan-text">' + escapeHtml(data2.reply) + '</div>';
+    sesConversationHistory.push({ role: 'assistant', content: data2.reply });
+
+    // Active la zone de suivi maintenant que la premiere reponse est affichee
+    document.getElementById('chatInputRow').style.display = 'flex';
   } catch(err){
     document.getElementById('planContent').innerHTML = '<p style="color:#ff6b6b;font-size:13px">Erreur de connexion. Réessayez plus tard.</p>';
   }
+}
+
+// ── SUIVI DE CONVERSATION (mini-chat) ──
+function autoResizeChat(el){
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function handleChatKey(e){
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendFollowUp();
+  }
+}
+
+function addChatBubble(role, text){
+  const thread = document.getElementById('chatThread');
+  const wrap = document.createElement('div');
+  wrap.className = 'chat-msg ' + (role === 'user' ? 'user' : 'ai');
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.textContent = text;
+  wrap.appendChild(bubble);
+  thread.appendChild(wrap);
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  return bubble;
+}
+
+function addChatTyping(){
+  const thread = document.getElementById('chatThread');
+  const wrap = document.createElement('div');
+  wrap.className = 'chat-msg ai';
+  wrap.id = 'sesTyping';
+  wrap.innerHTML = '<div class="bubble"><div class="chat-typing"><span></span><span></span><span></span></div></div>';
+  thread.appendChild(wrap);
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+function removeChatTyping(){
+  const el = document.getElementById('sesTyping');
+  if(el) el.remove();
+}
+
+async function sendFollowUp(){
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if(!text || sesIsSending) return;
+
+  sesIsSending = true;
+  const sendBtn = document.getElementById('chatSendBtn');
+  sendBtn.disabled = true;
+  input.value = '';
+  input.style.height = 'auto';
+
+  addChatBubble('user', text);
+  sesConversationHistory.push({ role: 'user', content: text });
+  addChatTyping();
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    const token = localStorage.getItem('vitosoli_token');
+    if(token) headers['Authorization'] = 'Bearer ' + token;
+
+    const res = await fetch('https://vitosoli.onrender.com/chat', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify({
+        messages: sesConversationHistory,
+        system: sesSystemPrompt,
+        maxTokens: 1600
+      })
+    });
+
+    const data = await res.json();
+    removeChatTyping();
+
+    if(data.error === 'auth_required'){
+      window.location.href = 'register.html';
+      return;
+    }
+
+    if(data.error === 'guest_limit'){
+      sesConversationHistory.pop();
+      addChatBubble('ai', '🔒 ' + data.message);
+      sesIsSending = false;
+      sendBtn.disabled = false;
+      return;
+    }
+
+    if(data.error){
+      addChatBubble('ai', 'Une erreur est survenue. Réessayez plus tard.');
+      sesIsSending = false;
+      sendBtn.disabled = false;
+      return;
+    }
+
+    addChatBubble('ai', data.reply);
+    sesConversationHistory.push({ role: 'assistant', content: data.reply });
+  } catch(err){
+    removeChatTyping();
+    addChatBubble('ai', 'Erreur de connexion. Réessayez plus tard.');
+  }
+
+  sesIsSending = false;
+  sendBtn.disabled = false;
 }
 
 function escapeHtml(text){
