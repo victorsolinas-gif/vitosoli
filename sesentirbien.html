@@ -338,7 +338,8 @@ async function requestAdvice(data){
       headers: headers,
       body: JSON.stringify({
         messages: [{ role: 'user', content: 'Voici ce que je traverse, merci de m\'accompagner avec quelques pistes :\n\n' + summary }],
-        system: systemPrompt
+        system: systemPrompt,
+        maxTokens: 1600
       })
     });
 
