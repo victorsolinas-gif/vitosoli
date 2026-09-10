@@ -524,12 +524,27 @@ async function requestMealPlan(data){
       return;
     }
 
-    content.innerHTML = '<div class="plan-text">' + escapeHtml(data2.reply) + '</div>';
-    lastMenuText = data2.reply;
+    // Filet de securite : remplace "X g cru" ou "X g (cru)" par "X g avant cuisson"
+    // au cas ou l'IA n'aurait pas applique la consigne systematiquement
+    const fixedReply = fixCruMentions(data2.reply);
+
+    content.innerHTML = '<div class="plan-text">' + escapeHtml(fixedReply) + '</div>';
+    lastMenuText = fixedReply;
     document.getElementById('downloadPdfBtn').style.display = 'block';
   } catch(err){
     document.getElementById('planContent').innerHTML = '<p style="color:#ff6b6b;font-size:13px">Erreur de connexion. Réessayez plus tard.</p>';
   }
+}
+
+// Filet de securite : corrige les mentions "X g cru" que l'IA aurait pu laisser passer,
+// malgre la consigne, en les remplacant par "X g avant cuisson" (plus clair pour l'utilisateur)
+function fixCruMentions(text){
+  return text
+    // "60g (cru)" -> "60g (avant cuisson)" ; "60g cru" -> "60g avant cuisson"
+    .replace(/(\d+\s?g)\s*\((\s*crue?\s*)\)/gi, '$1 (avant cuisson)')
+    .replace(/(\d+\s?g)(?!\s*\()\s+crue?\b/gi, '$1 avant cuisson')
+    // Evite un double "avant cuisson avant cuisson" si jamais deja present
+    .replace(/(avant cuisson)(\s+avant cuisson)+/gi, '$1');
 }
 
 function escapeHtml(text){
