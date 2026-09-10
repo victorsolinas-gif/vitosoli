@@ -188,15 +188,15 @@ body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(4
         <input type="number" id="weight" placeholder="75" min="30" max="300" step="0.1" required>
       </div>
       <div class="field">
-        <label for="waist">Tour de ventre (cm)</label>
-        <input type="number" id="waist" placeholder="90" min="50" max="200" required>
+        <label for="waist">Tour de ventre (cm) <span style="color:var(--muted);font-weight:400">(facultatif)</span></label>
+        <input type="number" id="waist" placeholder="90">
       </div>
     </div>
 
     <div class="field">
-      <label for="wrist">Tour de poignet (cm)</label>
-      <input type="number" id="wrist" placeholder="16" min="10" max="25" step="0.1" required>
-      <div class="field-hint">Mesuré juste sous l'os du poignet — sert à estimer votre corpulence (charpente osseuse fine, moyenne ou large).</div>
+      <label for="wrist">Tour de poignet (cm) <span style="color:var(--muted);font-weight:400">(facultatif)</span></label>
+      <input type="number" id="wrist" placeholder="16" step="0.1">
+      <div class="field-hint">Mesuré juste sous l'os du poignet — sert à estimer votre corpulence (charpente osseuse fine, moyenne ou large). Laissez vide si vous n'avez pas de mètre ruban.</div>
     </div>
 
     <div class="field">
@@ -295,14 +295,14 @@ async function generatePlan(){
   const age = parseInt(document.getElementById('age').value);
   const height = parseFloat(document.getElementById('height').value);
   const weight = parseFloat(document.getElementById('weight').value);
-  const waist = parseFloat(document.getElementById('waist').value);
-  const wrist = parseFloat(document.getElementById('wrist').value);
+  const waistInput = document.getElementById('waist').value;
+  const wristInput = document.getElementById('wrist').value;
 
   const errorBox = document.getElementById('errorBox');
   errorBox.style.display = 'none';
 
-  if(!age || !height || !weight || !waist || !wrist){
-    showError('Merci de remplir tous les champs.');
+  if(!age || !height || !weight){
+    showError('Merci de remplir au moins l\'âge, la taille et le poids.');
     return;
   }
 
@@ -312,7 +312,16 @@ async function generatePlan(){
 
   const bmi = calculateBMI(weight, height);
   const category = bmiCategory(bmi);
-  const frame = frameSize(wrist, height, selectedSex);
+
+  // Tour de poignet facultatif : si absent, on n'estime pas la charpente (on l'indique clairement)
+  const wristProvided = wristInput !== '' && !isNaN(parseFloat(wristInput));
+  const wrist = wristProvided ? parseFloat(wristInput) : null;
+  const frame = wristProvided ? frameSize(wrist, height, selectedSex) : null;
+
+  // Tour de ventre facultatif : si absent, on ne l'affiche simplement pas
+  const waistProvided = waistInput !== '' && !isNaN(parseFloat(waistInput));
+  const waist = waistProvided ? parseFloat(waistInput) : null;
+
   const bmr = estimateBMR(weight, height, age, selectedSex);
 
   displayStats(bmi, category, frame, waist, selectedSex);
@@ -329,12 +338,19 @@ async function generatePlan(){
 
 function displayStats(bmi, category, frame, waist, sex){
   const waistAlertThreshold = sex === 'F' ? 88 : 102;
-  const waistAlert = waist >= waistAlertThreshold;
+  const waistAlert = waist !== null && waist >= waistAlertThreshold;
+
+  const frameCard = frame
+    ? '<div class="stat-card"><div class="icon">🦴</div><div class="label">Charpente</div><div class="value">' + frameLabels[frame] + '</div><div class="sub">Selon tour de poignet</div></div>'
+    : '<div class="stat-card"><div class="icon">🦴</div><div class="label">Charpente</div><div class="value" style="font-size:13px">Non renseignée</div><div class="sub">Tour de poignet absent</div></div>';
+
+  const waistCard = waist !== null
+    ? '<div class="stat-card"><div class="icon">📏</div><div class="label">Tour de ventre</div><div class="value">' + waist + ' cm</div><div class="sub" style="color:' + (waistAlert ? '#ff8c42' : '#00ff88') + '">' + (waistAlert ? 'À surveiller' : 'Dans la norme') + '</div></div>'
+    : '<div class="stat-card"><div class="icon">📏</div><div class="label">Tour de ventre</div><div class="value" style="font-size:13px">Non renseigné</div><div class="sub">Facultatif</div></div>';
 
   document.getElementById('statsGrid').innerHTML =
     '<div class="stat-card"><div class="icon">⚖️</div><div class="label">IMC</div><div class="value">' + bmi.toFixed(1) + '</div><div class="sub" style="color:' + category.color + '">' + category.label + '</div></div>' +
-    '<div class="stat-card"><div class="icon">🦴</div><div class="label">Charpente</div><div class="value">' + frameLabels[frame] + '</div><div class="sub">Selon tour de poignet</div></div>' +
-    '<div class="stat-card"><div class="icon">📏</div><div class="label">Tour de ventre</div><div class="value">' + waist + ' cm</div><div class="sub" style="color:' + (waistAlert ? '#ff8c42' : '#00ff88') + '">' + (waistAlert ? 'À surveiller' : 'Dans la norme') + '</div></div>';
+    frameCard + waistCard;
 }
 
 function resetForm(){
@@ -346,12 +362,13 @@ function resetForm(){
 async function requestMealPlan(data){
   const goalLabels = { 1: '1 kg par mois (rythme doux)', 2: '2 kg par mois (rythme modéré)', 3: '3 kg par mois (rythme actif, le maximum raisonnable)' };
 
-  const summary = 'Profil : ' + (data.sex === 'F' ? 'Femme' : 'Homme') + ', ' + data.age + ' ans, ' + data.height + ' cm, ' + data.weight + ' kg.\n' +
-    'Tour de ventre : ' + data.waist + ' cm. Tour de poignet : ' + data.wrist + ' cm (charpente ' + frameLabels[data.frame].toLowerCase() + ').\n' +
-    'IMC : ' + data.bmi.toFixed(1) + ' (' + data.category.label + ').\n' +
-    'Objectif : perdre ' + goalLabels[data.goal] + '.';
+  let summary = 'Profil : ' + (data.sex === 'F' ? 'Femme' : 'Homme') + ', ' + data.age + ' ans, ' + data.height + ' cm, ' + data.weight + ' kg.\n';
+  if(data.waist !== null) summary += 'Tour de ventre : ' + data.waist + ' cm.\n';
+  if(data.frame) summary += 'Tour de poignet : ' + data.wrist + ' cm (charpente ' + frameLabels[data.frame].toLowerCase() + ').\n';
+  summary += 'IMC : ' + data.bmi.toFixed(1) + ' (' + data.category.label + ').\n';
+  summary += 'Objectif : perdre ' + goalLabels[data.goal] + '.';
 
-  const systemPrompt = "Tu es Vitosoli, un coach en nutrition bienveillant et pédagogue, mais tu n'es pas un médecin ni un(e) diététicien(ne) diplômé(e) et tu ne dois jamais prétendre l'être. À partir du profil fourni, propose un plan alimentaire équilibré pour une semaine (7 jours, 3 repas + 1 collation par jour, format concis avec des titres de jour clairs) adapté à l'objectif de perte de poids indiqué, qui ne doit JAMAIS dépasser le rythme demandé par l'utilisateur. Base-toi sur des principes nutritionnels reconnus (déficit calorique modéré et sûr, protéines suffisantes, fibres, hydratation). Termine par une section '🏃 Activité physique légère conseillée' avec 3-4 suggestions d'exercices doux adaptés (marche, natation, vélo, étirements) et leur fréquence recommandée. Ajoute une phrase finale rappelant que ce plan est indicatif et qu'un avis médical ou diététique est recommandé pour un suivi personnalisé, en particulier en cas de problème de santé. Ne mentionne jamais que tu es une IA. Reste concret, évite les généralités vagues.";
+  const systemPrompt = "Tu es Vitosoli, un coach en nutrition bienveillant et pédagogue, mais tu n'es pas un médecin ni un(e) diététicien(ne) diplômé(e) et tu ne dois jamais prétendre l'être. À partir du profil fourni, propose un plan alimentaire équilibré pour une semaine (7 jours, 3 repas + 1 collation par jour, format concis avec des titres de jour clairs) adapté à l'objectif de perte de poids indiqué, qui ne doit JAMAIS dépasser le rythme demandé par l'utilisateur. Base-toi sur des principes nutritionnels reconnus (déficit calorique modéré et sûr, protéines suffisantes, fibres, hydratation). Si le tour de ventre ou le tour de poignet ne sont pas fournis, base-toi simplement sur l'IMC et le reste du profil sans les mentionner comme manquants. Termine par une section '🏃 Activité physique légère conseillée' avec 3-4 suggestions d'exercices doux adaptés (marche, natation, vélo, étirements) et leur fréquence recommandée. Ajoute une phrase finale rappelant que ce plan est indicatif et qu'un avis médical ou diététique est recommandé pour un suivi personnalisé, en particulier en cas de problème de santé. Ne mentionne jamais que tu es une IA. Reste concret, évite les généralités vagues.";
 
   try {
     const headers = { 'Content-Type': 'application/json' };
@@ -363,7 +380,8 @@ async function requestMealPlan(data){
       headers: headers,
       body: JSON.stringify({
         messages: [{ role: 'user', content: 'Voici mon profil, merci de me proposer un menu de la semaine adapté :\n\n' + summary }],
-        system: systemPrompt
+        system: systemPrompt,
+        maxTokens: 2000
       })
     });
 
