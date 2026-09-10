@@ -71,6 +71,14 @@ body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(4
 .field textarea{resize:vertical;min-height:80px;line-height:1.5}
 .field-hint{font-size:11px;color:var(--muted);margin-top:5px;line-height:1.5}
 
+.sex-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sex-btn{
+  padding:12px;border-radius:10px;border:1.5px solid var(--border);
+  background:var(--surface2);color:var(--muted);font-size:14px;font-weight:500;
+  cursor:pointer;text-align:center;transition:all .15s;
+}
+.sex-btn.active{border-color:rgba(167,139,250,.5);background:rgba(167,139,250,.1);color:#a78bfa}
+
 .theme-grid{display:flex;flex-direction:column;gap:8px}
 .theme-btn{
   display:flex;align-items:center;gap:12px;
@@ -167,6 +175,14 @@ body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(4
 
   <div class="form-card">
     <div class="field">
+      <label>Vous êtes</label>
+      <div class="sex-toggle">
+        <div class="sex-btn active" id="sexF" onclick="selectSex('F')">Femme</div>
+        <div class="sex-btn" id="sexM" onclick="selectSex('M')">Homme</div>
+      </div>
+    </div>
+
+    <div class="field">
       <label for="age">Votre âge</label>
       <input type="number" id="age" placeholder="45" min="15" max="110" required>
     </div>
@@ -236,8 +252,15 @@ body{padding:20px;padding-top:calc(20px + var(--safe-top));padding-bottom:calc(4
 </div>
 
 <script>
+let selectedSex = 'F';
 let selectedTheme = 'aging';
 let selectedIntensity = 1;
+
+function selectSex(sex){
+  selectedSex = sex;
+  document.getElementById('sexF').classList.toggle('active', sex === 'F');
+  document.getElementById('sexM').classList.toggle('active', sex === 'M');
+}
 
 function selectTheme(theme){
   selectedTheme = theme;
@@ -277,7 +300,7 @@ async function generateAdvice(){
   document.getElementById('resultsView').classList.add('visible');
   window.scrollTo(0,0);
 
-  requestAdvice({ age, theme: selectedTheme, intensity: selectedIntensity, details });
+  requestAdvice({ age, sex: selectedSex, theme: selectedTheme, intensity: selectedIntensity, details });
 
   btn.disabled = false;
   btn.innerHTML = '✨ Obtenir des pistes de réflexion';
@@ -297,12 +320,13 @@ async function requestAdvice(data){
   };
   const intensityLabels = { 1: 'légère', 2: 'modérée', 3: 'marquée', 4: 'forte' };
 
-  let summary = 'Âge : ' + data.age + ' ans.\n';
+  let summary = 'Sexe : ' + (data.sex === 'F' ? 'Femme' : 'Homme') + '.\n';
+  summary += 'Âge : ' + data.age + ' ans.\n';
   summary += 'Préoccupation principale : ' + themeLabels[data.theme] + '.\n';
   summary += 'Intensité ressentie : ' + intensityLabels[data.intensity] + '.\n';
   if(data.details) summary += 'Ce que la personne partage : ' + data.details;
 
-  const systemPrompt = "Tu es Vitosoli, une présence bienveillante et à l'écoute, mais tu n'es ni psychologue ni médecin et tu ne dois jamais prétendre l'être ni poser de diagnostic. À partir de ce que la personne partage, propose une réponse chaleureuse et structurée en français : commence par accueillir ce qu'elle ressent avec empathie sans minimiser ni dramatiser, puis propose 3 à 4 pistes de réflexion ou petites actions concrètes et douces adaptées au thème (vieillissement/image corporelle, quête de sens, ou anxiété liée aux transitions de vie). Reste concret et évite les généralités creuses type 'prenez soin de vous'. Si l'intensité indiquée est 'forte' ou si les propos suggèrent une détresse importante, encourage chaleureusement mais clairement à en parler à un professionnel (médecin, psychologue) ou à contacter le 3114, sans être alarmiste. Termine toujours par une phrase rappelant que ces pistes ne remplacent pas un accompagnement professionnel. Ne mentionne jamais que tu es une IA. Ne pose pas de diagnostic (ex: ne dis jamais 'vous faites une dépression').";
+  const systemPrompt = "Tu es Vitosoli, une présence bienveillante et à l'écoute, mais tu n'es ni psychologue ni médecin et tu ne dois jamais prétendre l'être ni poser de diagnostic. À partir de ce que la personne partage, propose une réponse chaleureuse et structurée en français : commence par accueillir ce qu'elle ressent avec empathie sans minimiser ni dramatiser, puis propose 3 à 4 pistes de réflexion ou petites actions concrètes et douces adaptées au thème (vieillissement/image corporelle, quête de sens, ou anxiété liée aux transitions de vie). Tiens compte du sexe indiqué pour adapter tes exemples et pistes lorsque c'est pertinent (par exemple, les enjeux liés au vieillissement, à l'image corporelle ou aux transitions de vie peuvent différer entre hommes et femmes), sans pour autant tomber dans les stéréotypes de genre. Reste concret et évite les généralités creuses type 'prenez soin de vous'. Si l'intensité indiquée est 'forte' ou si les propos suggèrent une détresse importante, encourage chaleureusement mais clairement à en parler à un professionnel (médecin, psychologue) ou à contacter le 3114, sans être alarmiste. Termine toujours par une phrase rappelant que ces pistes ne remplacent pas un accompagnement professionnel. Ne mentionne jamais que tu es une IA. Ne pose pas de diagnostic (ex: ne dis jamais 'vous faites une dépression').";
 
   try {
     const headers = { 'Content-Type': 'application/json' };
