@@ -527,7 +527,7 @@ async function requestMealPlan(data){
 
     // Note fixe ajoutee une fois pour toutes en preambule : plus fiable que de compter
     // sur l'IA pour preciser "avant cuisson" a chaque occurrence dans le texte genere.
-    const preambleNote = 'ℹ️ Les quantités de pâtes, riz, quinoa, lentilles et autres féculents ou légumineuses sont indiquées avant cuisson.\n\n';
+    const preambleNote = 'ℹ️ pâtes,riz,quinoa,lentilles et autres féculents sont indiquées avant cuisson.\n\n';
     const fixedReply = preambleNote + cleanedReply;
 
     content.innerHTML = '<div class="plan-text">' + escapeHtml(fixedReply) + '</div>';
