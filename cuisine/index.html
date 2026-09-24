@@ -120,6 +120,7 @@ dialog .row.start{justify-content:flex-start;margin:0 0 10px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 <div class="app">
@@ -811,16 +812,50 @@ document.getElementById('printView').onclick = () => {
   renderer.render(scene, camera);
   const dataUrl = renderer.domElement.toDataURL('image/png');
   if (!dataUrl || dataUrl === 'data:,'){ flashHint('Capture impossible, réessayez.'); return; }
-  const w = window.open('', '_blank');
-  if (!w){ flashHint('Autorisez les pop-ups pour imprimer.'); return; }
-  w.document.open();
-  w.document.write('<!DOCTYPE html><html><head><title>Atelier cuisine — Impression</title><style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}img{max-width:100%;max-height:100vh;object-fit:contain;display:block}@media print{body{min-height:auto}img{width:100%;height:auto}}</style></head><body></body></html>');
-  w.document.close();
-  const img = w.document.createElement('img');
-  img.onload = () => { w.focus(); w.print(); };
-  img.onerror = () => { flashHint('Erreur lors du chargement de l\'image.'); };
-  img.src = dataUrl;
-  w.document.body.appendChild(img);
+  if (!window.jspdf){ flashHint('Le module PDF n\'a pas pu se charger.'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const canvas = renderer.domElement;
+  const imgRatio = canvas.width / canvas.height;
+
+  // Choisit l'orientation du PDF selon le ratio de l'image capturée
+  const orientation = imgRatio >= 1 ? 'landscape' : 'portrait';
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 12;
+
+  // Titre
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(47, 107, 88);
+  doc.text('Atelier cuisine - Simulation', margin, margin + 4);
+
+  const dateStr = new Date().toLocaleDateString('fr-FR');
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(120, 120, 120);
+  doc.text(dateStr, pageWidth - margin, margin + 4, { align: 'right' });
+
+  // Zone disponible pour l'image, sous le titre
+  const imgTop = margin + 12;
+  const availableWidth = pageWidth - margin * 2;
+  const availableHeight = pageHeight - imgTop - margin;
+
+  let imgWidth = availableWidth;
+  let imgHeight = imgWidth / imgRatio;
+  if (imgHeight > availableHeight){
+    imgHeight = availableHeight;
+    imgWidth = imgHeight * imgRatio;
+  }
+  const imgX = margin + (availableWidth - imgWidth) / 2;
+
+  doc.addImage(dataUrl, 'PNG', imgX, imgTop, imgWidth, imgHeight);
+
+  const blobUrl = doc.output('bloburl');
+  const w = window.open(blobUrl, '_blank');
+  if (!w){ flashHint('Autorisez les pop-ups pour ouvrir le PDF.'); return; }
 };
 document.getElementById('clear').onclick = () => { if (!state.mods.length) return; state.mods = []; selected = null; rebuildAll(); commit(); flashHint('Pièce vidée. Ctrl+Z pour annuler.'); };
 const dlg = document.getElementById('dlg'), ta = document.getElementById('json'), dmsg = document.getElementById('dlgMsg');
