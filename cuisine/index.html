@@ -376,6 +376,7 @@ function normalize(){
 normalize();
 let selected = null;
 let history = [];
+let printCounter = 0;
 let snapshot = JSON.stringify(state);
 
 function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
@@ -404,13 +405,20 @@ const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.maxPolarAngle = Math.PI/2 - 0.02;
 controls.minDistance = 80; controls.maxDistance = 2200;
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0xb8b2a8, 0.75));
-const sun = new THREE.DirectionalLight(0xffffff, 0.75);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xb8b2a8, 1.05));
+const sun = new THREE.DirectionalLight(0xffffff, 0.55);
 sun.position.set(220, 420, 320); sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, {left:-600,right:600,top:600,bottom:-600,near:10,far:1500});
 sun.shadow.bias = -0.0005;
+sun.shadow.radius = 4;
 scene.add(sun);
+
+// Lumiere de remplissage (sans ombre) pour eclairer le cote oppose au soleil,
+// notamment les meubles hauts qui restaient trop sombres
+const fill = new THREE.DirectionalLight(0xffffff, 0.35);
+fill.position.set(-260, 260, -200);
+scene.add(fill);
 
 const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 function setBg(){ scene.background = new THREE.Color(cssVar('--canvas') || '#DCE1DD'); }
@@ -852,6 +860,12 @@ document.getElementById('printView').onclick = () => {
   const imgX = margin + (availableWidth - imgWidth) / 2;
 
   doc.addImage(dataUrl, 'PNG', imgX, imgTop, imgWidth, imgHeight);
+
+  // Nom de fichier propre pour le PDF (utilise si l'utilisateur telecharge/enregistre depuis l'onglet)
+  printCounter += 1;
+  const dateForName = new Date().toISOString().slice(0, 10); // AAAA-MM-JJ
+  const fileName = `simulation-${dateForName}-${printCounter}.pdf`;
+  doc.setProperties({ title: fileName });
 
   const blobUrl = doc.output('bloburl');
   const w = window.open(blobUrl, '_blank');
