@@ -810,16 +810,17 @@ document.getElementById('undo').onclick = undo;
 document.getElementById('printView').onclick = () => {
   renderer.render(scene, camera);
   const dataUrl = renderer.domElement.toDataURL('image/png');
+  if (!dataUrl || dataUrl === 'data:,'){ flashHint('Capture impossible, réessayez.'); return; }
   const w = window.open('', '_blank');
   if (!w){ flashHint('Autorisez les pop-ups pour imprimer.'); return; }
-  w.document.write(`<!DOCTYPE html><html><head><title>Atelier cuisine — Impression</title>
-    <style>
-      body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}
-      img{max-width:100%;max-height:100vh;object-fit:contain}
-      @media print{ body{min-height:auto} img{width:100%;height:auto} }
-    </style></head>
-    <body><img src="${dataUrl}" onload="window.print()"></body></html>`);
+  w.document.open();
+  w.document.write('<!DOCTYPE html><html><head><title>Atelier cuisine — Impression</title><style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#fff}img{max-width:100%;max-height:100vh;object-fit:contain;display:block}@media print{body{min-height:auto}img{width:100%;height:auto}}</style></head><body></body></html>');
   w.document.close();
+  const img = w.document.createElement('img');
+  img.onload = () => { w.focus(); w.print(); };
+  img.onerror = () => { flashHint('Erreur lors du chargement de l\'image.'); };
+  img.src = dataUrl;
+  w.document.body.appendChild(img);
 };
 document.getElementById('clear').onclick = () => { if (!state.mods.length) return; state.mods = []; selected = null; rebuildAll(); commit(); flashHint('Pièce vidée. Ctrl+Z pour annuler.'); };
 const dlg = document.getElementById('dlg'), ta = document.getElementById('json'), dmsg = document.getElementById('dlgMsg');
