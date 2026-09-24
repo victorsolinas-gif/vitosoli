@@ -1,861 +1,586 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Atelier cuisine — planificateur 3D</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Vitosoli — L'assistant IA qui pense avec vous. Posez vos questions, obtenez des réponses claires, avancez plus vite.">
+<title>Vitosoli — L'IA qui pense avec vous</title>
 <style>
-:root{
-  --bg:#E8EBE7;--panel:#F8F9F7;--ink:#1C2420;--muted:#5E6963;--line:#D3D8D3;
-  --accent:#2F6B58;--accent-ink:#fff;--canvas:#DCE1DD;--danger:#A23B2E;
-  color-scheme:light dark;box-sizing:border-box;
-  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #1c1c2e;
+  --surface: #24243a;
+  --surface2: #2d2d46;
+  --border: rgba(255,255,255,0.08);
+  --text: #eeeaff;
+  --muted: #8a8aae;
+  --p1: #7c5cfc;
+  --p2: #e040fb;
+  --p3: #00d4ff;
+  --grad: linear-gradient(135deg, #7c5cfc 0%, #e040fb 50%, #00d4ff 100%);
+  --grad-text: linear-gradient(135deg, #a78bfa, #f472b6, #38bdf8);
 }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    --bg:#141917;--panel:#1B211F;--ink:#E6EBE8;--muted:#98A39D;--line:#2C3431;
-    --accent:#79B9A4;--accent-ink:#0F1513;--canvas:#1E2522;--danger:#E07A6B;
-  }
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg); color: var(--text);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
-:root[data-theme="dark"]{
-  --bg:#141917;--panel:#1B211F;--ink:#E6EBE8;--muted:#98A39D;--line:#2C3431;
-  --accent:#79B9A4;--accent-ink:#0F1513;--canvas:#1E2522;--danger:#E07A6B;
+
+/* ── ORBS ── */
+.orb {
+  position: fixed; border-radius: 50%;
+  pointer-events: none; z-index: 0;
+  filter: blur(100px); opacity: .12;
+  animation: drift 20s ease-in-out infinite alternate;
 }
-*,*::before,*::after{box-sizing:inherit}
-html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
-body{height:100%;margin:0;background:var(--bg);color:var(--ink);
-  font-family:"Schibsted Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:14px;line-height:1.45}
-button,input,select{font:inherit;color:inherit}
-button{cursor:pointer}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.orb-a { width: 600px; height: 600px; top: -200px; right: -100px; background: radial-gradient(circle, #7c5cfc, transparent); animation-delay: 0s; }
+.orb-b { width: 500px; height: 500px; bottom: 20%; left: -150px; background: radial-gradient(circle, #e040fb, transparent); animation-delay: -7s; }
+.orb-c { width: 350px; height: 350px; top: 50%; right: 10%; background: radial-gradient(circle, #00d4ff, transparent); animation-delay: -14s; }
+@keyframes drift { from { transform: translate(0,0) scale(1); } to { transform: translate(30px, 20px) scale(1.05); } }
 
-.app{height:100%;display:grid;grid-template-rows:auto 1fr}
-header{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
-header h1{font-size:17px;font-weight:700;margin:0 12px 0 0;letter-spacing:-.01em}
-.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex-wrap:wrap}
-.seg button{border:0;background:transparent;padding:6px 12px}
-.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
-.btn{border:1px solid var(--line);background:transparent;border-radius:8px;padding:6px 12px}
-.btn:hover{border-color:var(--muted)}
-.btn:disabled{opacity:.45;cursor:default}
-.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.btn.danger{color:var(--danger)}
-.spacer{flex:1}
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 48px;
+  background: rgba(28,28,46,0.75); backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none;
+}
+.nav-logo-icon {
+  width: 32px; height: 32px; border-radius: 9px;
+  background: var(--grad);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800;
+  color: #fff; flex-shrink: 0;
+}
+.nav-logo-name {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px;
+  background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.nav-links {
+  display: flex; align-items: center; gap: 32px;
+  list-style: none;
+}
+.nav-links a {
+  color: var(--muted); font-size: 14px; font-weight: 500;
+  text-decoration: none; transition: color .2s;
+}
+.nav-links a:hover { color: var(--text); }
+.nav-cta {
+  display: flex; align-items: center; gap: 10px;
+}
+.btn-ghost {
+  padding: 8px 18px; border-radius: 8px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text); font-size: 13px; font-weight: 500;
+  text-decoration: none; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: border-color .2s, background .2s;
+}
+.btn-ghost:hover { border-color: rgba(124,92,252,.4); background: rgba(124,92,252,.06); }
+.btn-primary {
+  padding: 9px 20px; border-radius: 8px;
+  border: none; background: var(--grad);
+  color: #fff; font-size: 13px; font-weight: 600;
+  text-decoration: none; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: opacity .2s, transform .15s;
+  white-space: nowrap;
+}
+.btn-primary:hover { opacity: .88; transform: translateY(-1px); }
 
-.main{display:grid;grid-template-columns:248px 1fr 292px;min-height:0}
-aside{background:var(--panel);overflow:auto;min-height:0}
-aside.left{border-right:1px solid var(--line);padding:14px 12px}
-aside.right{border-left:1px solid var(--line);padding:14px 16px}
-h2{font-size:13px;font-weight:600;margin:18px 0 8px;color:var(--muted)}
-h2:first-child{margin-top:0}
-.catname{font-size:12px;color:var(--muted);margin-bottom:12px}
-.catname b{color:var(--ink);font-weight:600}
+/* ── HERO ── */
+.hero {
+  position: relative; z-index: 1;
+  min-height: 100vh;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: 120px 24px 80px;
+}
 
-.cat{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.item{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px 7px;border:1px solid var(--line);
-  border-radius:6px;background:transparent;text-align:center}
-.item:hover{border-color:var(--accent)}
-.item svg{height:58px;width:auto;max-width:100%}
-.item .n{font-size:12px;line-height:1.25}
-.item .p{font-size:11px;color:var(--muted)}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 14px; border-radius: 100px;
+  border: 1px solid rgba(124,92,252,.3);
+  background: rgba(124,92,252,.08);
+  font-size: 12px; font-weight: 600; color: #a78bfa;
+  letter-spacing: .04em; margin-bottom: 32px;
+}
+.hero-badge-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--p1); animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1; transform:scale(1)} 50%{opacity:.5; transform:scale(.8)} }
 
-.view{position:relative;background:var(--canvas);min-height:0;min-width:0}
-.view canvas{display:block;width:100%;height:100%}
-.hint{position:absolute;left:12px;bottom:12px;font-size:12px;color:var(--muted);
-  background:color-mix(in srgb,var(--panel) 85%,transparent);padding:6px 10px;border-radius:6px;max-width:calc(100% - 24px)}
-.dims{position:absolute;right:12px;top:12px;font-size:12px;color:var(--muted)}
+.hero h1 {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: clamp(40px, 7vw, 88px);
+  line-height: 1.05; letter-spacing: -.03em;
+  max-width: 800px; margin-bottom: 24px;
+}
+.hero h1 .line-grad {
+  background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  display: block;
+}
 
-.row{display:flex;gap:8px}
-.field{display:flex;flex-direction:column;gap:3px;flex:1}
-.field label{font-size:12px;color:var(--muted)}
-.field input{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
-.sw{display:flex;gap:8px;flex-wrap:wrap}
-.sw button{width:30px;height:30px;border-radius:50%;border:2px solid var(--line);padding:0}
-.sw button[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 2px var(--panel) inset}
-.swl{font-size:12px;color:var(--muted);margin:4px 0 10px}
+.hero-sub {
+  font-size: clamp(16px, 2vw, 19px); color: var(--muted);
+  max-width: 520px; line-height: 1.65; margin-bottom: 44px;
+  font-weight: 300;
+}
 
-.sel{border:1px solid var(--line);border-radius:6px;padding:10px 12px}
-.sel .t{font-weight:600}
-.sel .d{color:var(--muted);font-size:12px;margin-bottom:10px}
-.sel .row{flex-wrap:wrap}
-.sel .seg{margin-bottom:10px}
-.sel .seg button{padding:4px 9px;font-size:13px}
-.empty{color:var(--muted);font-size:13px}
+.hero-actions {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  justify-content: center; margin-bottom: 64px;
+}
+.btn-hero {
+  padding: 14px 32px; border-radius: 12px;
+  border: none; background: var(--grad);
+  color: #fff; font-size: 15px; font-weight: 600;
+  text-decoration: none; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: opacity .2s, transform .2s;
+  box-shadow: 0 8px 32px rgba(124,92,252,.3);
+}
+.btn-hero:hover { opacity: .9; transform: translateY(-2px); box-shadow: 0 12px 40px rgba(124,92,252,.4); }
+.btn-hero-ghost {
+  padding: 14px 28px; border-radius: 12px;
+  border: 1px solid var(--border); background: rgba(255,255,255,.03);
+  color: var(--text); font-size: 15px; font-weight: 500;
+  text-decoration: none; cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  transition: border-color .2s, background .2s;
+  display: flex; align-items: center; gap: 8px;
+}
+.btn-hero-ghost:hover { border-color: rgba(124,92,252,.3); background: rgba(124,92,252,.06); }
 
-table{width:100%;border-collapse:collapse;font-size:13px}
-td{padding:4px 0;border-bottom:1px solid var(--line);vertical-align:top}
-td.q{width:28px;color:var(--muted)}
-td.r{text-align:right;white-space:nowrap;padding-left:6px}
-td small{color:var(--muted)}
-.total{display:flex;justify-content:space-between;font-weight:700;font-size:16px;margin-top:10px}
-.note{font-size:11px;color:var(--muted);margin-top:4px}
+/* ── CHAT PREVIEW ── */
+.chat-preview {
+  width: 100%; max-width: 620px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px; overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(124,92,252,.08);
+}
+.preview-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.02);
+}
+.preview-dot { width: 10px; height: 10px; border-radius: 50%; }
+.preview-dot:nth-child(1) { background: #ff5f57; }
+.preview-dot:nth-child(2) { background: #ffbd2e; }
+.preview-dot:nth-child(3) { background: #28ca41; }
+.preview-title {
+  margin: 0 auto; font-size: 12px; font-weight: 500; color: var(--muted);
+  letter-spacing: .03em;
+}
+.preview-messages { padding: 20px 18px; display: flex; flex-direction: column; gap: 14px; }
 
-dialog{border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--ink);width:min(620px,94vw);padding:18px}
-dialog::backdrop{background:rgba(0,0,0,.35)}
-dialog h3{margin:0 0 6px;font-size:16px}
-dialog p{margin:0 0 10px}
-dialog textarea{width:100%;height:260px;font:12px/1.4 ui-monospace,Menlo,monospace;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);padding:8px}
-dialog .row{justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
-dialog .row.start{justify-content:flex-start;margin:0 0 10px}
-.msg{font-size:12px;color:var(--muted);flex:1;align-self:center}
-.errs{color:var(--danger);font-size:12px;margin:8px 0 0;padding-left:18px;max-height:120px;overflow:auto}
-.errs:empty{display:none}
-.filebtn{position:relative;overflow:hidden}
-.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.pmsg { display: flex; gap: 10px; }
+.pmsg.user { flex-direction: row-reverse; }
+.pmsg-avatar {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700; margin-top: 2px;
+}
+.pmsg-avatar.ai { background: var(--grad); }
+.pmsg-avatar.user { background: var(--surface2); border: 1px solid var(--border); }
+.pmsg-bubble {
+  max-width: 80%; padding: 10px 13px; border-radius: 13px;
+  font-size: 13px; line-height: 1.6;
+}
+.pmsg.ai .pmsg-bubble {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-top-left-radius: 3px;
+}
+.pmsg.user .pmsg-bubble {
+  background: var(--grad); color: #fff;
+  border-bottom-right-radius: 3px;
+}
+.preview-input {
+  margin: 0 18px 18px;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 10px 8px 14px;
+}
+.preview-input-text { flex: 1; font-size: 12px; color: var(--muted); font-family: 'Inter', sans-serif; }
+.preview-send {
+  width: 28px; height: 28px; border-radius: 7px;
+  background: var(--grad); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
 
-@media (max-width:900px){
-  html,body{height:auto}
-  .app{height:auto}
-  .main{grid-template-columns:1fr;grid-template-rows:auto 58vh auto}
-  aside.left{order:1;border-right:0;border-bottom:1px solid var(--line)}
-  .view{order:2;height:58vh}
-  aside.right{order:3;border-left:0}
-  .cat{display:flex;overflow-x:auto;padding-bottom:4px}
-  .cat .item{flex:0 0 108px}
-  aside.left h2{display:none}
+/* ── SECTION BASE ── */
+section { position: relative; z-index: 1; }
+.section-inner { max-width: 1100px; margin: 0 auto; padding: 100px 24px; }
+
+/* ── FEATURES ── */
+.features-header { text-align: center; margin-bottom: 64px; }
+.section-label {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--p1); margin-bottom: 14px;
+}
+.section-title {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: clamp(28px, 4vw, 48px); letter-spacing: -.02em;
+  line-height: 1.1; margin-bottom: 16px;
+}
+.section-sub { font-size: 16px; color: var(--muted); max-width: 480px; margin: 0 auto; line-height: 1.65; }
+
+.features-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+}
+.feature-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 28px 24px;
+  transition: border-color .2s, transform .2s;
+}
+.feature-card:hover { border-color: rgba(124,92,252,.25); transform: translateY(-3px); }
+.feature-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: var(--surface2); border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; margin-bottom: 16px;
+}
+.feature-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; margin-bottom: 8px; }
+.feature-desc { font-size: 14px; color: var(--muted); line-height: 1.65; }
+
+/* ── HOW IT WORKS ── */
+.how-section { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+.how-step {
+  padding: 48px 36px; border-right: 1px solid var(--border);
+  transition: background .2s;
+}
+.how-step:last-child { border-right: none; }
+.how-step:hover { background: rgba(124,92,252,.03); }
+.how-num {
+  font-family: 'Syne', sans-serif; font-weight: 800; font-size: 48px;
+  background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  line-height: 1; margin-bottom: 16px; display: block;
+}
+.how-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; margin-bottom: 10px; }
+.how-desc { font-size: 14px; color: var(--muted); line-height: 1.65; }
+
+/* ── TESTIMONIALS ── */
+.testimonials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.testimonial-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 24px;
+}
+.testimonial-stars { color: #fbbf24; font-size: 13px; margin-bottom: 12px; letter-spacing: 2px; }
+.testimonial-text { font-size: 14px; line-height: 1.7; color: var(--text); margin-bottom: 16px; }
+.testimonial-author { display: flex; align-items: center; gap: 10px; }
+.testimonial-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--grad); display: flex; align-items: center;
+  justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0;
+}
+.testimonial-name { font-size: 13px; font-weight: 600; }
+.testimonial-role { font-size: 11px; color: var(--muted); margin-top: 1px; }
+
+/* ── CTA FINAL ── */
+.cta-section {
+  text-align: center; padding: 120px 24px;
+}
+.cta-box {
+  max-width: 680px; margin: 0 auto;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 28px; padding: 64px 48px;
+  position: relative; overflow: hidden;
+}
+.cta-glow {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 0%, rgba(124,92,252,.12) 0%, transparent 70%);
+}
+.cta-box h2 {
+  font-family: 'Syne', sans-serif; font-weight: 800;
+  font-size: clamp(28px, 4vw, 44px); letter-spacing: -.02em;
+  line-height: 1.1; margin-bottom: 16px; position: relative; z-index: 1;
+}
+.cta-box p {
+  font-size: 16px; color: var(--muted); margin-bottom: 36px;
+  line-height: 1.65; position: relative; z-index: 1;
+}
+.cta-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; position: relative; z-index: 1; }
+
+/* ── FOOTER ── */
+footer {
+  border-top: 1px solid var(--border); position: relative; z-index: 1;
+  padding: 40px 48px;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+}
+.footer-logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+.footer-logo-icon {
+  width: 26px; height: 26px; border-radius: 7px;
+  background: var(--grad); display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: #fff;
+}
+.footer-logo-name {
+  font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px;
+  background: var(--grad-text); -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.footer-copy { font-size: 13px; color: var(--muted); }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a { font-size: 13px; color: var(--muted); text-decoration: none; transition: color .2s; }
+.footer-links a:hover { color: var(--text); }
+
+/* ── DIVIDER ── */
+.divider {
+  width: 1px; height: 60px; background: var(--border);
+  margin: 0 auto;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  nav { padding: 14px 20px; }
+  .nav-links { display: none; }
+  .features-grid { grid-template-columns: 1fr 1fr; }
+  .how-grid { grid-template-columns: 1fr; }
+  .how-step { border-right: none; border-bottom: 1px solid var(--border); }
+  .how-step:last-child { border-bottom: none; }
+  .testimonials-grid { grid-template-columns: 1fr; }
+  footer { flex-direction: column; align-items: flex-start; padding: 32px 20px; }
+}
+@media (max-width: 600px) {
+  .section-inner { padding: 64px 20px; }
+  .features-grid { grid-template-columns: 1fr; }
+  .cta-box { padding: 40px 24px; }
+  .hero-actions { flex-direction: column; width: 100%; }
+  .btn-hero, .btn-hero-ghost { width: 100%; justify-content: center; text-align: center; }
 }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
 </head>
 <body>
-<div class="app">
-  <header>
-    <h1>Atelier cuisine</h1>
-    <div class="seg" role="group" aria-label="Vue">
-      <button id="v3d" aria-pressed="true">3D</button>
-      <button id="vplan" aria-pressed="false">Vue de dessus</button>
+
+<div class="orb orb-a"></div>
+<div class="orb orb-b"></div>
+<div class="orb orb-c"></div>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-icon">✦</div>
+    <span class="nav-logo-name">Vitosoli</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#fonctionnalites">Fonctionnalités</a></li>
+    <li><a href="#comment">Comment ça marche</a></li>
+    <li><a href="#avis">Avis</a></li>
+  </ul>
+  <div class="nav-cta">
+    <a href="login.html" class="btn-ghost">Se connecter</a>
+    <a href="chat-ia.html" class="btn-primary">Essayer gratuitement →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge">
+    <div class="hero-badge-dot"></div>
+    Disponible maintenant — accès gratuit
+  </div>
+
+  <h1>
+    L'intelligence artificielle
+    <span class="line-grad">qui pense avec vous</span>
+  </h1>
+
+  <p class="hero-sub">
+    Posez vos questions, rédigez plus vite, résolvez des problèmes complexes. Vitosoli est votre assistant IA disponible 24h/24, dans la langue que vous préférez.
+  </p>
+
+  <div class="hero-actions">
+    <a href="chat-ia.html" class="btn-hero">Commencer maintenant — c'est gratuit</a>
+    <a href="#fonctionnalites" class="btn-hero-ghost">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="10 15 15 12 10 9"/></svg>
+      Voir comment ça marche
+    </a>
+  </div>
+
+  <!-- Chat preview -->
+  <div class="chat-preview">
+    <div class="preview-bar">
+      <div class="preview-dot"></div>
+      <div class="preview-dot"></div>
+      <div class="preview-dot"></div>
+      <span class="preview-title">Vitosoli — Assistant IA</span>
     </div>
-    <button class="btn" id="undo" title="Ctrl+Z">Annuler</button>
-    <div class="spacer"></div>
-    <button class="btn" id="catBtn">Catalogue</button>
-    <button class="btn" id="io">Projet</button>
-    <button class="btn danger" id="clear">Tout effacer</button>
-  </header>
-  <div class="main">
-    <aside class="left"><div class="catname" id="catName"></div><div id="catalog"></div></aside>
-    <div class="view" id="view">
-      <div class="dims" id="dimsLabel"></div>
-      <div class="hint">Glissez un meuble pour le déplacer, il s'aimante aux murs et aux voisins. R : pivoter · Suppr : retirer</div>
-    </div>
-    <aside class="right">
-      <h2>Pièce (cm)</h2>
-      <div class="row">
-        <div class="field"><label for="rw">Largeur</label><input id="rw" type="number" min="150" max="900" step="10"></div>
-        <div class="field"><label for="rd">Profondeur</label><input id="rd" type="number" min="150" max="900" step="10"></div>
-        <div class="field"><label for="rh">Hauteur</label><input id="rh" type="number" min="220" max="320" step="5"></div>
+    <div class="preview-messages">
+      <div class="pmsg user">
+        <div class="pmsg-avatar user">J</div>
+        <div class="pmsg-bubble">Aide-moi à rédiger un email pour relancer un client sans paraître insistant</div>
       </div>
-      <h2>Façades</h2>
-      <div class="sw" id="swFacade"></div><div class="swl" id="lFacade"></div>
-      <h2>Plan de travail</h2>
-      <div class="sw" id="swTop"></div><div class="swl" id="lTop"></div>
-      <h2>Poignées</h2>
-      <div class="sw" id="swHandle"></div><div class="swl" id="lHandle"></div>
-      <h2>Sélection</h2>
-      <div id="selection"></div>
-      <h2>Estimation</h2>
-      <div id="quote"></div>
-    </aside>
+      <div class="pmsg ai">
+        <div class="pmsg-avatar ai">✦</div>
+        <div class="pmsg-bubble">Voici une version qui reste professionnelle et chaleureuse :<br><br><strong>Objet :</strong> Suite à notre échange du [date]<br><br>Bonjour [Prénom],<br>J'espère que vous allez bien. Je me permets de revenir vers vous concernant notre proposition — avez-vous eu l'occasion d'y réfléchir ?<br>Je reste disponible pour répondre à vos questions. 😊</div>
+      </div>
+      <div class="pmsg user">
+        <div class="pmsg-avatar user">J</div>
+        <div class="pmsg-bubble">Parfait, peux-tu le rendre plus court ?</div>
+      </div>
+    </div>
+    <div class="preview-input">
+      <span class="preview-input-text">Continuez la conversation…</span>
+      <div class="preview-send">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </div>
+    </div>
   </div>
-</div>
+</section>
 
-<dialog id="dlg">
-  <h3>Projet</h3>
-  <p>Copiez ce texte pour sauvegarder votre projet, ou collez un projet pour le charger.</p>
-  <textarea id="json" spellcheck="false"></textarea>
-  <div class="row">
-    <span class="msg" id="dlgMsg"></span>
-    <button class="btn" id="copy">Copier</button>
-    <button class="btn primary" id="load">Charger ce projet</button>
-    <button class="btn" id="close">Fermer</button>
+<!-- FEATURES -->
+<section id="fonctionnalites">
+  <div class="section-inner">
+    <div class="features-header">
+      <span class="section-label">Fonctionnalités</span>
+      <h2 class="section-title">Tout ce dont vous avez besoin,<br>dans une seule conversation</h2>
+      <p class="section-sub">Vitosoli s'adapte à votre façon de travailler, pas l'inverse.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">✍️</div>
+        <div class="feature-title">Rédaction intelligente</div>
+        <div class="feature-desc">Emails, articles, posts LinkedIn, rapports. Vitosoli adapte le ton et le style selon votre besoin exact.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💻</div>
+        <div class="feature-title">Code à la demande</div>
+        <div class="feature-desc">Python, JavaScript, SQL, et plus. Générez, corrigez ou expliquez du code en langage naturel.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🧠</div>
+        <div class="feature-title">Analyse & synthèse</div>
+        <div class="feature-desc">Résumez des documents complexes, extrayez les points clés, obtenez des explications claires.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💡</div>
+        <div class="feature-title">Brainstorming</div>
+        <div class="feature-desc">Générez des idées, explorez des angles différents, débloquez votre créativité en quelques secondes.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🌍</div>
+        <div class="feature-title">Multilingue</div>
+        <div class="feature-desc">Travaillez en français, anglais, espagnol et bien d'autres langues. Vitosoli comprend et répond dans votre langue.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Réponses instantanées</div>
+        <div class="feature-desc">Pas d'attente. Vitosoli répond en temps réel, quel que soit la complexité de votre question.</div>
+      </div>
+    </div>
   </div>
-</dialog>
+</section>
 
-<dialog id="dlgCat">
-  <h3>Catalogue</h3>
-  <p id="catInfo"></p>
-  <div class="row start">
-    <span class="btn filebtn">Ouvrir un fichier JSON<input type="file" id="catFile" accept=".json,application/json"></span>
-    <button class="btn" id="catDefault">Revenir au catalogue par défaut</button>
+<!-- HOW IT WORKS -->
+<section id="comment" class="how-section">
+  <div class="section-inner">
+    <div class="features-header">
+      <span class="section-label">Comment ça marche</span>
+      <h2 class="section-title">Simple comme une conversation</h2>
+    </div>
+    <div class="how-grid">
+      <div class="how-step">
+        <span class="how-num">1</span>
+        <div class="how-title">Créez votre compte</div>
+        <div class="how-desc">Inscription en 30 secondes, sans carte bancaire. Votre premier accès est entièrement gratuit.</div>
+      </div>
+      <div class="how-step">
+        <span class="how-num">2</span>
+        <div class="how-title">Posez votre question</div>
+        <div class="how-desc">Écrivez ce que vous avez en tête, comme vous le feriez à un collègue expert. Pas de syntaxe spéciale.</div>
+      </div>
+      <div class="how-step">
+        <span class="how-num">3</span>
+        <div class="how-title">Obtenez une réponse</div>
+        <div class="how-desc">Vitosoli répond en secondes. Affinez, posez des questions de suivi, continuez la conversation.</div>
+      </div>
+    </div>
   </div>
-  <textarea id="catJson" spellcheck="false"></textarea>
-  <ul class="errs" id="catErr"></ul>
-  <div class="row">
-    <span class="msg" id="catMsg"></span>
-    <button class="btn" id="catCopy">Copier</button>
-    <button class="btn primary" id="catApply">Appliquer ce catalogue</button>
-    <button class="btn" id="catClose">Fermer</button>
+</section>
+
+<!-- TESTIMONIALS -->
+<section id="avis">
+  <div class="section-inner">
+    <div class="features-header">
+      <span class="section-label">Ils utilisent Vitosoli</span>
+      <h2 class="section-title">Des milliers de personnes<br>avancent plus vite</h2>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">« Je rédige mes emails clients en 2 minutes au lieu de 20. Vitosoli a complètement changé ma façon de travailler. »</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">S</div>
+          <div>
+            <div class="testimonial-name">Sophie M.</div>
+            <div class="testimonial-role">Consultante indépendante</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">« Pour le code, c'est bluffant. J'explique ce que je veux en français et j'obtiens le script propre, commenté, prêt à l'emploi. »</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">A</div>
+          <div>
+            <div class="testimonial-name">Antoine R.</div>
+            <div class="testimonial-role">Développeur freelance</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">« J'utilise Vitosoli pour préparer mes réunions et synthétiser mes notes. Un gain de temps considérable chaque semaine. »</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">M</div>
+          <div>
+            <div class="testimonial-name">Marie-Claire D.</div>
+            <div class="testimonial-role">Directrice de projet</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
-</dialog>
+</section>
 
-<script type="application/json" id="catalogue-defaut">{
-  "id": "atelier-standard",
-  "nom": "Catalogue standard",
-  "version": "2026.09",
-  "devise": "EUR",
-  "gabarits": {
-    "socle": 10,
-    "hauteurPlan": 82,
-    "epaisseurPlan": 3.8,
-    "altitudeHauts": 140,
-    "hauteurHauts": 70,
-    "hauteurColonnes": 214
-  },
-  "categories": [
-    {"id": "bas", "nom": "Meubles bas"},
-    {"id": "hauts", "nom": "Meubles hauts"},
-    {"id": "colonnes", "nom": "Colonnes"},
-    {"id": "electro", "nom": "Électroménager"}
-  ],
-  "articles": [
-    {"id": "bas-portes", "nom": "Meuble bas", "categorie": "bas", "type": "bas", "modele": "portes",
-     "largeurs": [
-       {"l": 30, "prix": 99, "ref": "MB30"}, {"l": 40, "prix": 115, "ref": "MB40"},
-       {"l": 45, "prix": 122, "ref": "MB45"}, {"l": 50, "prix": 129, "ref": "MB50"},
-       {"l": 60, "prix": 135, "ref": "MB60"}, {"l": 80, "prix": 165, "ref": "MB80"},
-       {"l": 100, "prix": 189, "ref": "MB100"}], "largeurDefaut": 60},
-    {"id": "bas-tiroirs", "nom": "Casserolier 3 tiroirs", "categorie": "bas", "type": "bas", "modele": "tiroirs", "nbTiroirs": 3,
-     "largeurs": [{"l": 40, "prix": 189, "ref": "CT40"}, {"l": 60, "prix": 229, "ref": "CT60"}, {"l": 80, "prix": 269, "ref": "CT80"}], "largeurDefaut": 60},
-    {"id": "bas-evier", "nom": "Sous-évier + évier inox", "categorie": "bas", "type": "bas", "modele": "evier",
-     "largeurs": [{"l": 80, "prix": 245, "ref": "SE80"}, {"l": 100, "prix": 279, "ref": "SE100"}, {"l": 120, "prix": 319, "ref": "SE120"}]},
-    {"id": "haut-portes", "nom": "Meuble haut", "categorie": "hauts", "type": "haut", "modele": "portes",
-     "largeurs": [
-       {"l": 30, "prix": 69, "ref": "MH30"}, {"l": 40, "prix": 79, "ref": "MH40"},
-       {"l": 50, "prix": 89, "ref": "MH50"}, {"l": 60, "prix": 95, "ref": "MH60"},
-       {"l": 80, "prix": 125, "ref": "MH80"}, {"l": 100, "prix": 149, "ref": "MH100"}], "largeurDefaut": 60},
-    {"id": "haut-bas35", "nom": "Meuble haut surhotte", "categorie": "hauts", "type": "haut", "modele": "portes", "hauteur": 35, "altitude": 175,
-     "largeurs": [{"l": 60, "prix": 72, "ref": "SH60"}, {"l": 80, "prix": 89, "ref": "SH80"}]},
-    {"id": "col-rangement", "nom": "Colonne rangement", "categorie": "colonnes", "type": "colonne", "modele": "rangement",
-     "largeurs": [{"l": 40, "prix": 229, "ref": "CR40"}, {"l": 60, "prix": 279, "ref": "CR60"}], "largeurDefaut": 60},
-    {"id": "col-four", "nom": "Colonne four", "categorie": "colonnes", "type": "colonne", "modele": "four",
-     "largeurs": [{"l": 60, "prix": 689, "ref": "CF60"}]},
-    {"id": "col-frigo", "nom": "Colonne réfrigérateur", "categorie": "colonnes", "type": "colonne", "modele": "frigo",
-     "largeurs": [{"l": 60, "prix": 949, "ref": "CRF60"}]},
-    {"id": "plaque", "nom": "Meuble + plaque induction", "categorie": "electro", "type": "bas", "modele": "plaque",
-     "largeurs": [{"l": 60, "prix": 419, "ref": "PI60"}, {"l": 80, "prix": 529, "ref": "PI80"}]},
-    {"id": "lave-vaisselle", "nom": "Lave-vaisselle intégrable", "categorie": "electro", "type": "bas", "modele": "lave-vaisselle",
-     "largeurs": [{"l": 45, "prix": 399, "ref": "LV45"}, {"l": 60, "prix": 449, "ref": "LV60"}], "largeurDefaut": 60},
-    {"id": "hotte", "nom": "Hotte box inox", "categorie": "electro", "type": "haut", "modele": "hotte", "profondeur": 50,
-     "largeurs": [{"l": 60, "prix": 289, "ref": "HB60"}, {"l": 90, "prix": 349, "ref": "HB90"}]}
-  ],
-  "finitions": {
-    "facades": [
-      {"id": "blanc", "nom": "Blanc mat", "couleur": "#F1F0EC", "rugosite": 0.55},
-      {"id": "chene", "nom": "Chêne clair", "couleur": "#C9A67C", "rugosite": 0.8},
-      {"id": "sauge", "nom": "Vert sauge", "couleur": "#8EA58C", "rugosite": 0.6},
-      {"id": "nuit", "nom": "Bleu nuit", "couleur": "#2D3E55", "rugosite": 0.5},
-      {"id": "anthracite", "nom": "Anthracite", "couleur": "#3B3E41", "rugosite": 0.55}
-    ],
-    "plans": [
-      {"id": "chene", "nom": "Chêne massif", "couleur": "#B98A5A", "rugosite": 0.7, "prixMl": 129},
-      {"id": "quartz", "nom": "Quartz blanc", "couleur": "#EBE8E2", "rugosite": 0.25, "prixMl": 289},
-      {"id": "beton", "nom": "Effet béton", "couleur": "#9C9A94", "rugosite": 0.8, "prixMl": 99},
-      {"id": "noir", "nom": "Stratifié noir", "couleur": "#262626", "rugosite": 0.4, "prixMl": 89}
-    ],
-    "poignees": [
-      {"id": "inox", "nom": "Barre inox", "couleur": "#B8BCC0", "metal": 0.8},
-      {"id": "noir", "nom": "Barre noire", "couleur": "#1E1E1E", "metal": 0.3},
-      {"id": "laiton", "nom": "Laiton brossé", "couleur": "#B08D57", "metal": 0.8}
-    ]
-  }
-}
-</script>
+<!-- CTA -->
+<section class="cta-section">
+  <div class="cta-box">
+    <div class="cta-glow"></div>
+    <h2>Prêt à essayer Vitosoli ?</h2>
+    <p>Rejoignez des milliers d'utilisateurs qui travaillent plus intelligemment chaque jour. Accès gratuit, sans engagement.</p>
+    <div class="cta-actions">
+      <a href="chat-ia.html" class="btn-hero">Démarrer gratuitement →</a>
+      <a href="chat-ia.html" class="btn-hero-ghost">Voir une démo</a>
+    </div>
+  </div>
+</section>
 
-<script>
-(async () => {
-/* =========================================================
-   Catalogue : chargement, validation, index
-   ========================================================= */
-const MODELES = {
-  bas: ['portes','tiroirs','evier','plaque','lave-vaisselle'],
-  haut: ['portes','hotte'],
-  colonne: ['rangement','four','frigo'],
-};
-let DEFAULT_CAT_TEXT = document.getElementById('catalogue-defaut').textContent;
-const ADMIN = new URLSearchParams(location.search).has('admin');
-const CAT_KEY = 'atelier-cuisine-catalogue', KEY = 'atelier-cuisine-v2';
+<!-- FOOTER -->
+<footer>
+  <a href="#" class="footer-logo">
+    <div class="footer-logo-icon">✦</div>
+    <span class="footer-logo-name">Vitosoli</span>
+  </a>
+  <span class="footer-copy">© 2025 Vitosoli. Tous droits réservés.</span>
+  <div class="footer-links">
+    <a href="#">Confidentialité</a>
+    <a href="#">Conditions</a>
+    <a href="#">Contact</a>
+  </div>
+</footer>
 
-function validateCatalog(c){
-  const e = [];
-  const isNum = v => typeof v === 'number' && isFinite(v);
-  const isHex = v => typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v);
-  if (!c || typeof c !== 'object') return ['Le fichier ne contient pas un objet JSON.'];
-  if (typeof c.nom !== 'string') e.push('« nom » manquant (nom du catalogue).');
-  const g = c.gabarits || {};
-  ['socle','hauteurPlan','epaisseurPlan','altitudeHauts','hauteurHauts','hauteurColonnes'].forEach(k => { if (!isNum(g[k])) e.push(`gabarits.${k} doit être un nombre (cm).`); });
-  const cats = Array.isArray(c.categories) ? c.categories : (e.push('« categories » doit être une liste.'), []);
-  const catIds = new Set(cats.map(x => x && x.id));
-  if (!Array.isArray(c.articles) || !c.articles.length) e.push('« articles » doit être une liste non vide.');
-  const seen = new Set();
-  (c.articles || []).forEach((a, i) => {
-    const w = `Article ${a && a.id ? '« ' + a.id + ' »' : 'n°' + (i + 1)}`;
-    if (!a || typeof a !== 'object'){ e.push(`${w} : objet attendu.`); return; }
-    if (typeof a.id !== 'string' || !a.id) e.push(`${w} : « id » manquant.`);
-    else if (seen.has(a.id)) e.push(`${w} : « id » en double.`); else seen.add(a.id);
-    if (typeof a.nom !== 'string') e.push(`${w} : « nom » manquant.`);
-    if (!catIds.has(a.categorie)) e.push(`${w} : catégorie « ${a.categorie} » inconnue.`);
-    if (!MODELES[a.type]) e.push(`${w} : type « ${a.type} » invalide (bas, haut ou colonne).`);
-    else if (!MODELES[a.type].includes(a.modele)) e.push(`${w} : modèle « ${a.modele} » impossible pour le type ${a.type} (valeurs : ${MODELES[a.type].join(', ')}).`);
-    if (!Array.isArray(a.largeurs) || !a.largeurs.length) e.push(`${w} : « largeurs » doit contenir au moins une largeur.`);
-    else a.largeurs.forEach(v => {
-      if (!v || !isNum(v.l) || v.l < 10 || v.l > 240) e.push(`${w} : largeur invalide (10 à 240 cm).`);
-      if (!v || !isNum(v.prix) || v.prix < 0) e.push(`${w} : prix manquant pour la largeur ${v && v.l}.`);
-    });
-    ['profondeur','hauteur','altitude'].forEach(k => { if (a[k] !== undefined && !isNum(a[k])) e.push(`${w} : « ${k} » doit être un nombre.`); });
-  });
-  const f = c.finitions || {};
-  [['facades','façades'],['plans','plans de travail'],['poignees','poignées']].forEach(([k, lbl]) => {
-    if (!Array.isArray(f[k]) || !f[k].length) { e.push(`finitions.${k} : au moins une finition de ${lbl}.`); return; }
-    f[k].forEach(x => { if (!x || !x.id || !x.nom || !isHex(x.couleur)) e.push(`finitions.${k} : chaque entrée demande id, nom et couleur (#RRGGBB).`); });
-    if (k === 'plans') f[k].forEach(x => { if (x && !isNum(x.prixMl)) e.push(`Plan « ${x.id} » : « prixMl » manquant.`); });
-  });
-  return [...new Set(e)];
-}
-
-let CAT, ARTS, PLINTH, BASE_TOP, WT, WALL_Y, WALL_H, COL_H;
-function setCatalog(c){
-  CAT = c; ARTS = new Map(c.articles.map(a => [a.id, a]));
-  const g = c.gabarits;
-  PLINTH = g.socle; BASE_TOP = g.hauteurPlan; WT = g.epaisseurPlan;
-  WALL_Y = g.altitudeHauts; WALL_H = g.hauteurHauts; COL_H = g.hauteurColonnes;
-}
-/* Catalogue du site : catalogue.json à côté de index.html (sinon, version intégrée) */
-try {
-  const r = await fetch('catalogue.json', {cache:'no-cache'});
-  if (r.ok){ const txt = await r.text(); const errs = validateCatalog(JSON.parse(txt)); if (!errs.length) DEFAULT_CAT_TEXT = txt; else console.warn('catalogue.json ignoré :', errs); }
-} catch(e){ console.warn('catalogue.json introuvable, catalogue intégré utilisé.'); }
-let initialCat = null;
-if (ADMIN) try { const s = JSON.parse(localStorage.getItem(CAT_KEY)); if (s && !validateCatalog(s).length) initialCat = s; } catch(e){}
-setCatalog(initialCat || JSON.parse(DEFAULT_CAT_TEXT));
-
-/* Résout un meuble posé → dimensions, prix, modèle */
-function spec(m){
-  const a = ARTS.get(m.a); if (!a) return null;
-  const v = a.largeurs.find(x => x.l === m.l) || a.largeurs[0];
-  const layer = a.type === 'colonne' ? 'col' : a.type;
-  const d = a.profondeur ?? (a.modele === 'hotte' ? 50 : layer === 'haut' ? 35 : 60);
-  const h = a.hauteur ?? (layer === 'haut' ? WALL_H : layer === 'col' ? COL_H : BASE_TOP + WT);
-  const y = layer === 'haut' ? (a.altitude ?? WALL_Y) : 0;
-  return {a, v, name:a.nom, w:v.l, d, h, y, layer, kind:a.modele, price:v.prix, ref:v.ref || ''};
-}
-const defaultWidth = a => (a.largeurs.find(v => v.l === a.largeurDefaut) || a.largeurs[0]).l;
-
-/* =========================================================
-   État du projet
-   ========================================================= */
-let uid = 1;
-const starter = () => ({
-  room:{W:360, D:300, H:250}, facade:'sauge', top:'chene', handle:'laiton',
-  mods:[
-    {a:'col-frigo',l:60,x:-150,z:-120},{a:'bas-portes',l:60,x:-90,z:-120},{a:'bas-evier',l:80,x:-20,z:-120},
-    {a:'lave-vaisselle',l:60,x:50,z:-120},{a:'plaque',l:60,x:110,z:-120},{a:'bas-portes',l:40,x:160,z:-120},
-    {a:'haut-portes',l:60,x:-90,z:-132.5},{a:'haut-portes',l:80,x:-20,z:-132.5},{a:'haut-portes',l:60,x:50,z:-132.5},
-    {a:'hotte',l:60,x:110,z:-125},{a:'haut-portes',l:40,x:160,z:-132.5},
-  ].filter(m => ARTS.has(m.a)).map(m => ({...m, rot:0, id: uid++}))
-});
-const validState = s => s && s.room && Array.isArray(s.mods);
-let state;
-try { state = JSON.parse(localStorage.getItem(KEY)); } catch(e) { state = null; }
-if (!validState(state)) state = starter();
-function normalize(){
-  const before = state.mods.length;
-  state.mods = state.mods.filter(m => ARTS.has(m.a));
-  state.mods.forEach(m => { const a = ARTS.get(m.a); if (!a.largeurs.some(v => v.l === m.l)) m.l = defaultWidth(a); m.rot = m.rot || 0; m.id = m.id || uid++; });
-  const f = CAT.finitions;
-  if (!f.facades.some(x => x.id === state.facade)) state.facade = f.facades[0].id;
-  if (!f.plans.some(x => x.id === state.top)) state.top = f.plans[0].id;
-  if (!f.poignees.some(x => x.id === state.handle)) state.handle = f.poignees[0].id;
-  uid = Math.max(uid, 0, ...state.mods.map(m => m.id)) + 1;
-  return before - state.mods.length;
-}
-normalize();
-let selected = null;
-let history = [];
-let snapshot = JSON.stringify(state);
-
-function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
-function commit(){ history.push(snapshot); if (history.length > 60) history.shift(); snapshot = JSON.stringify(state); save(); refreshUI(); }
-function undo(){
-  if (!history.length) return;
-  state = JSON.parse(history.pop()); normalize(); snapshot = JSON.stringify(state);
-  if (selected && !state.mods.find(m => m.id === selected)) selected = null;
-  buildRoom(); rebuildAll(); save(); refreshUI();
-}
-
-/* =========================================================
-   Scène Three.js
-   ========================================================= */
-const view = document.getElementById('view');
-const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.outputEncoding = THREE.sRGBEncoding;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-view.prepend(renderer.domElement);
-
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(45, 1, 1, 6000);
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true; controls.maxPolarAngle = Math.PI/2 - 0.02;
-controls.minDistance = 80; controls.maxDistance = 2200;
-
-scene.add(new THREE.HemisphereLight(0xffffff, 0xb8b2a8, 0.75));
-const sun = new THREE.DirectionalLight(0xffffff, 0.75);
-sun.position.set(220, 420, 320); sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, {left:-600,right:600,top:600,bottom:-600,near:10,far:1500});
-sun.shadow.bias = -0.0005;
-scene.add(sun);
-
-const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-function setBg(){ scene.background = new THREE.Color(cssVar('--canvas') || '#DCE1DD'); }
-setBg(); matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setBg);
-
-const mat = (c, r=.6, m=0) => new THREE.MeshStandardMaterial({color:c, roughness:r, metalness:m});
-const M = {
-  carcass: mat('#E9E7E2', .7), plinth: mat('#4A4A48', .8), steel: mat('#C5C8CC', .3, .75),
-  dark: mat('#2A2C2E', .4, .3), glass: mat('#111315', .15, .2), ring: mat('#6E7276', .5),
-  wall: mat('#F3F1EC', .95), floor: mat('#CFC6B8', .9),
-};
-const fin = (k, id) => CAT.finitions[k].find(x => x.id === id) || CAT.finitions[k][0];
-let F, T, H;
-function makeFinishMats(){
-  const f = fin('facades', state.facade), t = fin('plans', state.top), h = fin('poignees', state.handle);
-  F = mat(f.couleur, f.rugosite ?? .6); T = mat(t.couleur, t.rugosite ?? .5); H = mat(h.couleur, .35, h.metal ?? .7);
-}
-
-/* Pièce */
-const roomGroup = new THREE.Group(); scene.add(roomGroup);
-const walls = {};
-function buildRoom(){
-  roomGroup.clear();
-  const {W, D, H:RH} = state.room;
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), M.floor);
-  floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; roomGroup.add(floor);
-  const pts = [];
-  for (let x = -W/2; x <= W/2 + .01; x += 50) pts.push(x, .2, -D/2, x, .2, D/2);
-  for (let z = -D/2; z <= D/2 + .01; z += 50) pts.push(-W/2, .2, z, W/2, .2, z);
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-  roomGroup.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({color:0x000000, transparent:true, opacity:.08})));
-  const mk = (w, h, d, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M.wall); m.position.set(x, y, z); m.receiveShadow = true; roomGroup.add(m); return m; };
-  walls.back  = mk(W + 20, RH, 10, 0, RH/2, -D/2 - 5);
-  walls.left  = mk(10, RH, D, -W/2 - 5, RH/2, 0);
-  walls.right = mk(10, RH, D,  W/2 + 5, RH/2, 0);
-  document.getElementById('dimsLabel').textContent = `${W} × ${D} cm · h ${RH} cm`;
-}
-
-/* Meubles : géométrie générée depuis le modèle du catalogue */
-const modGroup = new THREE.Group(); scene.add(modGroup);
-const objs = new Map();
-let selHelper = null;
-
-function buildModule(m){
-  const s = spec(m), W = s.w, D = s.d, a = s.a;
-  const g = new THREE.Group();
-  const add = (w, h, d, material, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material); b.position.set(x, y, z); g.add(b); return b; };
-  const panel = (x, y0, w, h, fz, hp='top') => {
-    add(w - .4, h - .4, 1.8, F, x, y0 + h/2, fz);
-    const hz = fz + 2.4;
-    if (hp === 'top')    add(Math.min(w * .5, 22), 1.2, 1.2, H, x, y0 + h - 5, hz);
-    if (hp === 'bottom') add(Math.min(w * .5, 22), 1.2, 1.2, H, x, y0 + 5, hz);
-    if (hp === 'side'){ const L = Math.min(h * .45, 45); add(1.2, L, 1.2, H, x + w/2 - 5, y0 > 100 ? y0 + 6 + L/2 : y0 + h - 6 - L/2, hz); }
-  };
-  const doors = (y0, h, fz, hp, n) => { n = n || a.nbPortes || (W > 60 ? 2 : 1); for (let i = 0; i < n; i++) panel(-W/2 + W/n * (i + .5), y0, W/n, h, fz, hp); };
-  const top = BASE_TOP + WT;
-
-  if (s.layer === 'bas'){
-    const cd = D - 4, h = BASE_TOP - PLINTH, fz = -D/2 + cd + .9;
-    add(W - .2, PLINTH, D - 12, M.plinth, 0, PLINTH/2, -6);
-    add(W - .2, h, cd, M.carcass, 0, PLINTH + h/2, -D/2 + cd/2);
-    if (s.kind === 'portes' || s.kind === 'evier') doors(PLINTH, h, fz, 'top', s.kind === 'evier' ? (W >= 80 ? 2 : 1) : 0);
-    if (s.kind === 'lave-vaisselle') panel(0, PLINTH, W, h, fz);
-    if (s.kind === 'tiroirs' || s.kind === 'plaque'){
-      const n = s.kind === 'plaque' ? 2 : (a.nbTiroirs || 3);
-      const hs = n === 3 ? [28, 28, h - 56] : n === 2 ? [h/2, h/2] : Array(n).fill(h/n);
-      let y = PLINTH; hs.forEach(hh => { panel(0, y, W, hh, fz); y += hh; });
-    }
-    add(W, WT, D, T, 0, BASE_TOP + WT/2, 0);
-    if (s.kind === 'evier'){
-      const bw = Math.min(W - 24, 80);
-      add(bw, .4, 44, M.steel, 0, top + .2, 3);
-      add(bw - 8, .5, 36, M.dark, 0, top + .3, 3);
-      const tap = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.6, 28, 16), M.steel);
-      tap.position.set(0, top + 14, -D/2 + 7); g.add(tap);
-      add(2.2, 2.2, 17, M.steel, 0, top + 27, -D/2 + 15);
-    }
-    if (s.kind === 'plaque'){
-      add(W - 3, .6, D - 10, M.glass, 0, top + .3, 1);
-      [[-13,-9,9],[13,-9,7],[-13,12,7],[13,12,9]].forEach(([x, z, r]) => {
-        const ring = new THREE.Mesh(new THREE.RingGeometry(r - 1, r, 40), M.ring);
-        ring.rotation.x = -Math.PI/2; ring.position.set(x * W/60, top + .65, z); g.add(ring);
-      });
-    }
-  } else if (s.layer === 'haut'){
-    if (s.kind === 'hotte'){
-      add(W, 8, D, M.steel, 0, 154, 0);
-      const ch = Math.max(20, state.room.H - 158);
-      add(26, ch, 24, M.steel, 0, 158 + ch/2, -D/2 + 12);
-    } else {
-      const cd = D - 2, fz = -D/2 + cd + .9;
-      add(W - .2, s.h, cd, M.carcass, 0, s.y + s.h/2, -D/2 + cd/2);
-      doors(s.y, s.h, fz, 'bottom');
-    }
-  } else {
-    const cd = D - 4, fz = -D/2 + cd + .9, CH = s.h;
-    add(W - .2, PLINTH, D - 12, M.plinth, 0, PLINTH/2, -6);
-    add(W - .2, CH - PLINTH, cd, M.carcass, 0, (PLINTH + CH)/2, -D/2 + cd/2);
-    if (s.kind === 'four'){
-      panel(0, PLINTH, W, 38, fz);
-      add(W - 1, 59.6, 1.8, M.dark, 0, 78, fz);
-      add(W - 10, 36, 2, M.glass, 0, 74, fz + .2);
-      add(W - 16, 1.4, 1.4, M.steel, 0, 98, fz + 2.6);
-      panel(0, 108, W, CH - 108, fz, 'bottom');
-    } else if (s.kind === 'frigo'){
-      const sp = Math.round(CH * .626);
-      panel(0, PLINTH, W, sp - PLINTH, fz, 'side'); panel(0, sp, W, CH - sp, fz, 'side');
-    } else {
-      const sp = Math.round(CH * .654);
-      doors(PLINTH, sp - PLINTH, fz, 'top', W > 60 ? 2 : 1); doors(sp, CH - sp, fz, 'bottom', W > 60 ? 2 : 1);
-    }
-  }
-  g.traverse(o => { if (o.isMesh){ o.castShadow = true; o.receiveShadow = true; o.userData.mid = m.id; } });
-  g.position.set(m.x, 0, m.z); g.rotation.y = m.rot * Math.PI/180;
-  return g;
-}
-function rebuildAll(){
-  makeFinishMats();
-  modGroup.clear(); objs.clear();
-  state.mods.forEach(m => { if (!spec(m)) return; const g = buildModule(m); objs.set(m.id, g); modGroup.add(g); });
-  updateSelHelper();
-}
-function rebuildOne(m){ const old = objs.get(m.id); if (old) modGroup.remove(old); const g = buildModule(m); objs.set(m.id, g); modGroup.add(g); updateSelHelper(); }
-function syncObj(m){ const g = objs.get(m.id); if (!g) return; g.position.set(m.x, 0, m.z); g.rotation.y = m.rot * Math.PI/180; updateSelHelper(); }
-function updateSelHelper(){
-  if (selHelper){ scene.remove(selHelper); selHelper = null; }
-  const g = selected && objs.get(selected);
-  if (g){ selHelper = new THREE.BoxHelper(g, new THREE.Color(cssVar('--accent') || '#2F6B58')); scene.add(selHelper); }
-}
-
-/* =========================================================
-   Placement, aimantation, collisions
-   ========================================================= */
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const ext = (w, d, rot) => (rot % 180 === 0) ? [w/2, d/2] : [d/2, w/2];
-function vRange(s){ return s.layer === 'bas' ? [0, BASE_TOP + WT] : s.layer === 'col' ? [0, s.h] : s.kind === 'hotte' ? [150, 9999] : [s.y, s.y + s.h]; }
-function collides(m, p){
-  const s = spec(m); const [ex, ez] = ext(s.w, s.d, p.rot); const [y0, y1] = vRange(s);
-  return state.mods.some(o => {
-    if (o.id === m.id) return false;
-    const os = spec(o); if (!os) return false;
-    const [oy0, oy1] = vRange(os); if (y1 <= oy0 + .1 || oy1 <= y0 + .1) return false;
-    const [ox, oz] = ext(os.w, os.d, o.rot);
-    return p.x - ex < o.x + ox - .1 && p.x + ex > o.x - ox + .1 && p.z - ez < o.z + oz - .1 && p.z + ez > o.z - oz + .1;
-  });
-}
-function place(m, rx, rz){
-  const s = spec(m), d = s.d, R = state.room;
-  let rot = m.rot, x = rx, z = rz;
-  const th = d/2 + 22;
-  const c = [['b', rz + R.D/2], ['l', rx + R.W/2], ['r', R.W/2 - rx]].filter(v => v[1] < th).sort((a, b) => a[1] - b[1]);
-  if (c.length){
-    const wl = c[0][0];
-    if (wl === 'b'){ rot = 0;   z = -R.D/2 + d/2; }
-    if (wl === 'l'){ rot = 90;  x = -R.W/2 + d/2; }
-    if (wl === 'r'){ rot = 270; x =  R.W/2 - d/2; }
-  }
-  const [ex, ez] = ext(s.w, d, rot);
-  x = clamp(x, -R.W/2 + ex, R.W/2 - ex); z = clamp(z, -R.D/2 + ez, R.D/2 - ez);
-  let bx = null, bz = null, bdx = 7, bdz = 7;
-  for (const o of state.mods){
-    if (o.id === m.id) continue;
-    const os = spec(o); if (!os) continue; const [ox, oz] = ext(os.w, os.d, o.rot);
-    for (const cx of [o.x - ox - ex, o.x + ox + ex, o.x - ox + ex, o.x + ox - ex]) if (Math.abs(x - cx) < bdx){ bdx = Math.abs(x - cx); bx = cx; }
-    for (const cz of [o.z - oz - ez, o.z + oz + ez, o.z - oz + ez, o.z + oz - ez]) if (Math.abs(z - cz) < bdz){ bdz = Math.abs(z - cz); bz = cz; }
-  }
-  if (bx !== null && rot % 180 === 0) x = bx;
-  if (bz !== null && rot % 180 !== 0) z = bz;
-  x = clamp(Math.round(x * 2) / 2, -R.W/2 + ex, R.W/2 - ex);
-  z = clamp(Math.round(z * 2) / 2, -R.D/2 + ez, R.D/2 - ez);
-  return {x, z, rot};
-}
-function freeSpot(m){
-  const s = spec(m), d = s.d, R = state.room, w = s.w, tries = [];
-  for (let x = -R.W/2 + w/2; x <= R.W/2 - w/2; x += 1) tries.push({x, z:-R.D/2 + d/2, rot:0});
-  for (let z = -R.D/2 + w/2; z <= R.D/2 - w/2; z += 1) tries.push({x:-R.W/2 + d/2, z, rot:90});
-  for (let z = -R.D/2 + w/2; z <= R.D/2 - w/2; z += 1) tries.push({x:R.W/2 - d/2, z, rot:270});
-  return tries.find(p => !collides(m, p)) || null;
-}
-
-/* =========================================================
-   Actions
-   ========================================================= */
-function addItem(aid, l){
-  const a = ARTS.get(aid); if (!a) return;
-  const m = {id: uid++, a: aid, l: l ?? defaultWidth(a), x:0, z:0, rot:0};
-  const p = freeSpot(m);
-  if (!p){ flashHint('Plus de place libre le long des murs. Agrandissez la pièce ou retirez un meuble.'); return; }
-  Object.assign(m, p); state.mods.push(m); rebuildOne(m);
-  selected = m.id; updateSelHelper(); commit();
-}
-function removeSel(){
-  if (!selected) return;
-  state.mods = state.mods.filter(m => m.id !== selected);
-  const g = objs.get(selected); if (g) modGroup.remove(g); objs.delete(selected);
-  selected = null; updateSelHelper(); commit();
-}
-function rotateSel(){
-  const m = state.mods.find(v => v.id === selected); if (!m) return;
-  const s = spec(m), R = state.room, rot = (m.rot + 90) % 360;
-  const [ex, ez] = ext(s.w, s.d, rot);
-  const p = {rot, x: clamp(m.x, -R.W/2 + ex, R.W/2 - ex), z: clamp(m.z, -R.D/2 + ez, R.D/2 - ez)};
-  if (collides(m, p)){ flashHint('Rotation impossible : le meuble toucherait un voisin.'); return; }
-  Object.assign(m, p); syncObj(m); commit();
-}
-function resizeSel(l){
-  const m = state.mods.find(v => v.id === selected); if (!m || m.l === l) return;
-  const oldL = m.l, old = {x:m.x, z:m.z, rot:m.rot}, dir = (l - oldL) / 2;
-  m.l = l;
-  // on garde le bord gauche (vu de face) fixe, puis on réaimante
-  const ax = m.rot === 0 ? dir : m.rot === 180 ? -dir : 0, az = m.rot === 90 ? -dir : m.rot === 270 ? dir : 0;
-  let p = place(m, m.x + ax, m.z + az);
-  if (collides(m, p)) p = place(m, m.x - ax, m.z - az);
-  if (collides(m, p)){ m.l = oldL; Object.assign(m, old); flashHint(`Pas la place pour ${l} cm à cet endroit.`); refreshUI(); return; }
-  Object.assign(m, p); rebuildOne(m); commit();
-}
-function duplicateSel(){ const m = state.mods.find(v => v.id === selected); if (m) addItem(m.a, m.l); }
-
-let hintTimer;
-const hintEl = view.querySelector('.hint'); const hintDefault = hintEl.textContent;
-function flashHint(t){ hintEl.textContent = t; clearTimeout(hintTimer); hintTimer = setTimeout(() => hintEl.textContent = hintDefault, 3500); }
-
-/* =========================================================
-   Souris / tactile
-   ========================================================= */
-const ray = new THREE.Raycaster(); const ndc = new THREE.Vector2();
-let drag = null, down = null;
-function setNdc(e){ const r = renderer.domElement.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); }
-function pick(e){ setNdc(e); return ray.intersectObjects(modGroup.children, true)[0] || null; }
-
-view.addEventListener('pointerdown', e => {
-  if (e.target !== renderer.domElement || e.button > 0) return;
-  down = {x:e.clientX, y:e.clientY};
-  const hit = pick(e);
-  if (hit){
-    const m = state.mods.find(v => v.id === hit.object.userData.mid);
-    selected = m.id; updateSelHelper(); refreshUI();
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -hit.point.y);
-    const p = new THREE.Vector3(); ray.ray.intersectPlane(plane, p);
-    drag = {m, plane, ox: p.x - m.x, oz: p.z - m.z, moved:false};
-    controls.enabled = false;
-  }
-}, true);
-window.addEventListener('pointermove', e => {
-  if (!drag){ if (e.target === renderer.domElement && !down) renderer.domElement.style.cursor = pick(e) ? 'grab' : ''; return; }
-  setNdc(e); const p = new THREE.Vector3();
-  if (!ray.ray.intersectPlane(drag.plane, p)) return;
-  const np = place(drag.m, p.x - drag.ox, p.z - drag.oz);
-  if (!collides(drag.m, np)){ Object.assign(drag.m, np); syncObj(drag.m); drag.moved = true; }
-  renderer.domElement.style.cursor = 'grabbing';
-});
-window.addEventListener('pointerup', e => {
-  if (drag){ controls.enabled = true; if (drag.moved) commit(); drag = null; renderer.domElement.style.cursor = ''; }
-  else if (down && e.target === renderer.domElement && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 4 && selected){
-    selected = null; updateSelHelper(); refreshUI();
-  }
-  down = null;
-});
-window.addEventListener('keydown', e => {
-  if (e.target.matches('input,textarea') || document.querySelector('dialog[open]')) return;
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z'){ e.preventDefault(); undo(); return; }
-  if (e.key === 'Delete' || e.key === 'Backspace'){ e.preventDefault(); removeSel(); }
-  else if (e.key.toLowerCase() === 'r') rotateSel();
-  else if (e.key.toLowerCase() === 'd') duplicateSel();
-  else if (e.key === 'Escape'){ selected = null; updateSelHelper(); refreshUI(); }
-});
-
-/* =========================================================
-   Caméra et boucle
-   ========================================================= */
-let mode = '3d', anim = null;
-function goView(v, instant){
-  mode = v; const {W, D, H:RH} = state.room; const s = Math.max(W, D);
-  const to = v === '3d' ? {p:new THREE.Vector3(W * .35, RH * 1.15, D * .5 + s * 1.05), t:new THREE.Vector3(0, 90, -D * .1)}
-                        : {p:new THREE.Vector3(0, s * 2.1, .01), t:new THREE.Vector3(0, 0, 0)};
-  controls.enableRotate = v === '3d';
-  document.getElementById('v3d').setAttribute('aria-pressed', v === '3d');
-  document.getElementById('vplan').setAttribute('aria-pressed', v === 'plan');
-  if (instant || matchMedia('(prefers-reduced-motion: reduce)').matches){ camera.position.copy(to.p); controls.target.copy(to.t); return; }
-  anim = {p0:camera.position.clone(), t0:controls.target.clone(), ...to, s:performance.now()};
-}
-function resize(){ const r = view.getBoundingClientRect(); renderer.setSize(r.width, r.height, false); camera.aspect = r.width / Math.max(r.height, 1); camera.updateProjectionMatrix(); }
-new ResizeObserver(resize).observe(view);
-function loop(now){
-  requestAnimationFrame(loop);
-  if (anim){
-    const k = Math.min(1, (now - anim.s) / 450), e = 1 - Math.pow(1 - k, 3);
-    camera.position.lerpVectors(anim.p0, anim.p, e); controls.target.lerpVectors(anim.t0, anim.t, e);
-    if (k === 1) anim = null;
-  }
-  controls.update();
-  const {W, D} = state.room, c = camera.position;
-  if (walls.back){ walls.back.visible = c.z > -D/2; walls.left.visible = c.x > -W/2; walls.right.visible = c.x < W/2; }
-  if (selHelper) selHelper.update();
-  renderer.render(scene, camera);
-}
-
-/* =========================================================
-   Interface
-   ========================================================= */
-const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function thumb(a){
-  const w = defaultWidth(a), layer = a.type === 'colonne' ? 'col' : a.type;
-  const h = layer === 'haut' ? (a.modele === 'hotte' ? 40 : (a.hauteur ?? WALL_H)) : layer === 'col' ? (a.hauteur ?? COL_H) : BASE_TOP + WT;
-  const s = 58 / 214 * (layer === 'col' ? 1 : 1.9), W = w * s, Hh = h * s;
-  const r = (x, y, ww, hh, f='none') => `<rect x="${x}" y="${y}" width="${ww}" height="${hh}" fill="${f}" stroke="currentColor" stroke-width="1"/>`;
-  const vline = (x, y0, y1) => `<line x1="${x}" y1="${y0}" x2="${x}" y2="${y1}" stroke="currentColor"/>`;
-  let o = '';
-  if (a.modele === 'hotte') o = r(W/2 - 5, 0, 10, Hh * .7) + r(0, Hh * .7, W, Hh * .3);
-  else {
-    const base = layer === 'haut' ? 0 : PLINTH * s, y0 = layer === 'bas' ? WT * s : 0, bodyH = Hh - base - y0;
-    if (layer === 'bas') o += r(0, 0, W, WT * s, 'currentColor');
-    const n = a.nbTiroirs || 3;
-    const fr = {portes:[1], evier:[1], 'lave-vaisselle':[1], plaque:[.5,.5], tiroirs: n === 3 ? [.22,.39,.39] : Array(n).fill(1/n),
-                four:[.52,.29,.19], frigo:[.39,.61], rangement:[.35,.65]}[a.modele] || [1];
-    let y = y0; fr.forEach(f => { o += r(0, y, W, bodyH * f, a.modele === 'four' && Math.abs(f - .29) < .01 ? 'currentColor' : 'none'); y += bodyH * f; });
-    const nd = a.nbPortes || (w > 60 ? 2 : 1);
-    if ((a.modele === 'portes' && nd > 1) || (a.modele === 'evier' && w >= 80)) for (let i = 1; i < nd; i++) o += vline(W * i / nd, y0, y0 + bodyH);
-    if (layer !== 'haut') o += r(W * .06, Hh - base, W * .88, base, 'currentColor');
-  }
-  return `<svg viewBox="-1 -1 ${W + 2} ${Hh + 2}" aria-hidden="true" style="color:var(--muted)">${o}</svg>`;
-}
-function renderCatalog(){
-  document.getElementById('catName').innerHTML = `<b>${esc(CAT.nom)}</b> · ${CAT.articles.length} articles${CAT.version ? ' · v' + esc(CAT.version) : ''}`;
-  const el = document.getElementById('catalog');
-  const mobile = matchMedia('(max-width:900px)').matches;
-  let html = mobile ? '<div class="cat">' : '';
-  CAT.categories.forEach(c => {
-    const arts = CAT.articles.filter(a => a.categorie === c.id); if (!arts.length) return;
-    if (!mobile) html += `<h2>${esc(c.nom)}</h2><div class="cat">`;
-    arts.forEach(a => {
-      const ls = a.largeurs.map(v => v.l), min = Math.min(...a.largeurs.map(v => v.prix));
-      html += `<button class="item" data-a="${esc(a.id)}" title="Ajouter : ${esc(a.nom)}">${thumb(a)}<span class="n">${esc(a.nom)}</span>
-        <span class="p">${ls.length > 1 ? ls.join(' · ') + ' cm' : ls[0] + ' cm'} · ${ls.length > 1 ? 'dès ' : ''}${fmt(min)}</span></button>`;
-    });
-    if (!mobile) html += '</div>';
-  });
-  el.innerHTML = html + (mobile ? '</div>' : '');
-  el.querySelectorAll('.item').forEach(b => b.onclick = () => addItem(b.dataset.a));
-}
-function swatches(id, list, key){
-  const el = document.getElementById(id);
-  el.innerHTML = list.map(f => `<button style="background:${f.couleur}" aria-label="${esc(f.nom)}" title="${esc(f.nom)}" data-id="${esc(f.id)}" aria-pressed="${state[key] === f.id}"></button>`).join('');
-  el.querySelectorAll('button').forEach(b => b.onclick = () => { state[key] = b.dataset.id; rebuildAll(); commit(); });
-  document.getElementById('l' + id.slice(2)).textContent = (list.find(f => f.id === state[key]) || list[0]).nom;
-}
-const fmt = n => n.toLocaleString('fr-FR', {style:'currency', currency: CAT.devise || 'EUR', maximumFractionDigits:0});
-function refreshUI(){
-  ['rw','rd','rh'].forEach((id, i) => { const el = document.getElementById(id); if (document.activeElement !== el) el.value = state.room[['W','D','H'][i]]; });
-  swatches('swFacade', CAT.finitions.facades, 'facade'); swatches('swTop', CAT.finitions.plans, 'top'); swatches('swHandle', CAT.finitions.poignees, 'handle');
-
-  const sel = document.getElementById('selection'), m = state.mods.find(v => v.id === selected);
-  if (m){
-    const s = spec(m);
-    const widths = s.a.largeurs.length > 1
-      ? `<div class="seg" role="group" aria-label="Largeur">${s.a.largeurs.map(v => `<button data-l="${v.l}" aria-pressed="${v.l === s.w}">${v.l}</button>`).join('')}</div>` : '';
-    sel.innerHTML = `<div class="sel"><div class="t">${esc(s.name)} ${s.w} cm</div>
-      <div class="d">${s.ref ? 'Réf. ' + esc(s.ref) + ' · ' : ''}L ${s.w} × P ${s.d}${s.kind === 'hotte' ? '' : ' × H ' + s.h} cm · ${fmt(s.price)}</div>
-      ${widths}
-      <div class="row"><button class="btn" id="aRot">Pivoter</button><button class="btn" id="aDup">Dupliquer</button><button class="btn danger" id="aDel">Retirer</button></div></div>`;
-    sel.querySelectorAll('[data-l]').forEach(b => b.onclick = () => resizeSel(+b.dataset.l));
-    document.getElementById('aRot').onclick = rotateSel; document.getElementById('aDup').onclick = duplicateSel; document.getElementById('aDel').onclick = removeSel;
-  } else sel.innerHTML = `<p class="empty">Cliquez un meuble dans la vue pour changer sa largeur, le pivoter ou le retirer.</p>`;
-
-  const q = new Map(); let total = 0, ml = 0;
-  state.mods.forEach(m => {
-    const s = spec(m); if (!s) return;
-    const k = s.a.id + '|' + s.w; const e = q.get(k) || {n:0, s}; e.n++; q.set(k, e);
-    total += s.price; if (s.layer === 'bas') ml += s.w / 100;
-  });
-  const top = fin('plans', state.top), topPrice = Math.ceil(ml * 10) / 10 * top.prixMl; total += topPrice;
-  const rows = [...q.values()].map(({n, s}) => `<tr><td class="q">${n}×</td><td>${esc(s.name)} ${s.w}${s.ref ? `<br><small>${esc(s.ref)}</small>` : ''}</td><td class="r">${fmt(n * s.price)}</td></tr>`).join('');
-  document.getElementById('quote').innerHTML = state.mods.length
-    ? `<table>${rows}${ml ? `<tr><td class="q"></td><td>Plan de travail ${esc(top.nom.toLowerCase())}<br><small>${ml.toFixed(1).replace('.', ',')} m × ${fmt(top.prixMl)}/m</small></td><td class="r">${fmt(topPrice)}</td></tr>` : ''}</table>
-       <div class="total"><span>Total</span><span>${fmt(total)}</span></div><div class="note">Prix du catalogue « ${esc(CAT.nom)} », hors pose et livraison.</div>`
-    : `<p class="empty">Ajoutez des meubles depuis le catalogue pour obtenir une estimation.</p>`;
-  document.getElementById('undo').disabled = !history.length;
-}
-
-/* Dimensions de la pièce */
-['rw','rd','rh'].forEach((id, i) => document.getElementById(id).addEventListener('change', e => {
-  const key = ['W','D','H'][i], lim = key === 'H' ? [220, 320] : [150, 900];
-  const v = clamp(Math.round(+e.target.value || state.room[key]), ...lim);
-  const old = {...state.room}; state.room[key] = v; const R = state.room;
-  state.mods.forEach(m => {
-    const s = spec(m); const [ex, ez] = ext(s.w, s.d, m.rot);
-    m.x = m.rot === 270 ? (m.x - old.W/2) + R.W/2 : (m.x + old.W/2) - R.W/2;
-    m.z = (m.z + old.D/2) - R.D/2;
-    m.x = clamp(m.x, -R.W/2 + ex, R.W/2 - ex); m.z = clamp(m.z, -R.D/2 + ez, R.D/2 - ez);
-  });
-  buildRoom(); rebuildAll(); commit();
-}));
-
-/* Projet */
-document.getElementById('v3d').onclick = () => goView('3d');
-document.getElementById('vplan').onclick = () => goView('plan');
-document.getElementById('undo').onclick = undo;
-document.getElementById('clear').onclick = () => { if (!state.mods.length) return; state.mods = []; selected = null; rebuildAll(); commit(); flashHint('Pièce vidée. Ctrl+Z pour annuler.'); };
-const dlg = document.getElementById('dlg'), ta = document.getElementById('json'), dmsg = document.getElementById('dlgMsg');
-document.getElementById('io').onclick = () => { ta.value = JSON.stringify({...state, catalogue:{id:CAT.id, version:CAT.version}}, null, 1); dmsg.textContent = ''; dlg.showModal(); };
-document.getElementById('close').onclick = () => dlg.close();
-async function copyText(el, msgEl, ok){ try { await navigator.clipboard.writeText(el.value); msgEl.textContent = ok; } catch(e){ el.select(); msgEl.textContent = 'Texte sélectionné, copiez-le avec Ctrl+C.'; } }
-document.getElementById('copy').onclick = () => copyText(ta, dmsg, 'Projet copié.');
-document.getElementById('load').onclick = () => {
-  let s; try { s = JSON.parse(ta.value); } catch(e){ dmsg.textContent = 'Ce texte n\u2019est pas du JSON valide.'; return; }
-  if (!validState(s)){ dmsg.textContent = 'Il manque la pièce ou la liste des meubles.'; return; }
-  delete s.catalogue; state = s; const lost = normalize(); selected = null;
-  buildRoom(); rebuildAll(); commit(); goView(mode); dlg.close();
-  if (lost) flashHint(`${lost} meuble(s) absent(s) du catalogue actuel ont été ignorés.`);
-};
-
-/* Catalogue */
-const dlgCat = document.getElementById('dlgCat'), cta = document.getElementById('catJson'), cerr = document.getElementById('catErr'), cmsg = document.getElementById('catMsg');
-function openCat(){
-  document.getElementById('catInfo').textContent = `Catalogue actuel : ${CAT.nom}${CAT.version ? ' (v' + CAT.version + ')' : ''}, ${CAT.articles.length} articles. Modifiez le JSON ci-dessous, collez-en un autre ou ouvrez un fichier, puis appliquez.`;
-  cta.value = JSON.stringify(CAT, null, 2); cerr.innerHTML = ''; cmsg.textContent = ''; dlgCat.showModal();
-}
-function applyCatalog(text){
-  let c; cerr.innerHTML = '';
-  try { c = JSON.parse(text); } catch(e){ cerr.innerHTML = `<li>JSON invalide : ${esc(e.message)}</li>`; return false; }
-  const errs = validateCatalog(c);
-  if (errs.length){ cerr.innerHTML = errs.slice(0, 30).map(x => `<li>${esc(x)}</li>`).join('') + (errs.length > 30 ? `<li>… et ${errs.length - 30} autres.</li>` : ''); return false; }
-  setCatalog(c);
-  try { if (text === DEFAULT_CAT_TEXT) localStorage.removeItem(CAT_KEY); else localStorage.setItem(CAT_KEY, JSON.stringify(c)); } catch(e){}
-  const lost = normalize(); history = []; snapshot = JSON.stringify(state); save(); selected = null;
-  renderCatalog(); rebuildAll(); refreshUI();
-  flashHint(`Catalogue « ${c.nom} » chargé.${lost ? ` ${lost} meuble(s) retiré(s) : absents de ce catalogue.` : ''}`);
-  return true;
-}
-document.getElementById('catBtn').onclick = openCat;
-document.getElementById('catClose').onclick = () => dlgCat.close();
-document.getElementById('catCopy').onclick = () => copyText(cta, cmsg, 'Catalogue copié.');
-document.getElementById('catApply').onclick = () => { if (applyCatalog(cta.value)) dlgCat.close(); };
-document.getElementById('catDefault').onclick = () => { cta.value = JSON.stringify(JSON.parse(DEFAULT_CAT_TEXT), null, 2); if (applyCatalog(DEFAULT_CAT_TEXT)) dlgCat.close(); };
-document.getElementById('catFile').onchange = e => {
-  const f = e.target.files[0]; if (!f) return;
-  const r = new FileReader();
-  r.onload = () => { cta.value = r.result; cmsg.textContent = `${f.name} chargé, vérifiez puis appliquez.`; cerr.innerHTML = ''; };
-  r.onerror = () => { cmsg.textContent = 'Lecture du fichier impossible.'; };
-  r.readAsText(f); e.target.value = '';
-};
-matchMedia('(max-width:900px)').addEventListener('change', renderCatalog);
-if (!ADMIN) document.getElementById('catBtn').hidden = true;
-
-/* Démarrage */
-renderCatalog(); buildRoom(); rebuildAll(); resize(); goView('3d', true); refreshUI(); requestAnimationFrame(loop);
-})();
-</script>
 </body>
 </html>
