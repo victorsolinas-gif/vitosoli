@@ -1,0 +1,71 @@
+{
+  "id": "atelier-standard",
+  "nom": "Catalogue standard",
+  "version": "2026.09",
+  "devise": "EUR",
+  "gabarits": {
+    "socle": 10,
+    "hauteurPlan": 82,
+    "epaisseurPlan": 3.8,
+    "altitudeHauts": 140,
+    "hauteurHauts": 70,
+    "hauteurColonnes": 214
+  },
+  "categories": [
+    {"id": "bas", "nom": "Meubles bas"},
+    {"id": "hauts", "nom": "Meubles hauts"},
+    {"id": "colonnes", "nom": "Colonnes"},
+    {"id": "electro", "nom": "Électroménager"}
+  ],
+  "articles": [
+    {"id": "bas-portes", "nom": "Meuble bas", "categorie": "bas", "type": "bas", "modele": "portes",
+     "largeurs": [
+       {"l": 30, "prix": 99, "ref": "MB30"}, {"l": 40, "prix": 115, "ref": "MB40"},
+       {"l": 45, "prix": 122, "ref": "MB45"}, {"l": 50, "prix": 129, "ref": "MB50"},
+       {"l": 60, "prix": 135, "ref": "MB60"}, {"l": 80, "prix": 165, "ref": "MB80"},
+       {"l": 100, "prix": 189, "ref": "MB100"}], "largeurDefaut": 60},
+    {"id": "bas-tiroirs", "nom": "Casserolier 3 tiroirs", "categorie": "bas", "type": "bas", "modele": "tiroirs", "nbTiroirs": 3,
+     "largeurs": [{"l": 40, "prix": 189, "ref": "CT40"}, {"l": 60, "prix": 229, "ref": "CT60"}, {"l": 80, "prix": 269, "ref": "CT80"}], "largeurDefaut": 60},
+    {"id": "bas-evier", "nom": "Sous-évier + évier inox", "categorie": "bas", "type": "bas", "modele": "evier",
+     "largeurs": [{"l": 80, "prix": 245, "ref": "SE80"}, {"l": 100, "prix": 279, "ref": "SE100"}, {"l": 120, "prix": 319, "ref": "SE120"}]},
+    {"id": "haut-portes", "nom": "Meuble haut", "categorie": "hauts", "type": "haut", "modele": "portes",
+     "largeurs": [
+       {"l": 30, "prix": 69, "ref": "MH30"}, {"l": 40, "prix": 79, "ref": "MH40"},
+       {"l": 50, "prix": 89, "ref": "MH50"}, {"l": 60, "prix": 95, "ref": "MH60"},
+       {"l": 80, "prix": 125, "ref": "MH80"}, {"l": 100, "prix": 149, "ref": "MH100"}], "largeurDefaut": 60},
+    {"id": "haut-bas35", "nom": "Meuble haut surhotte", "categorie": "hauts", "type": "haut", "modele": "portes", "hauteur": 35, "altitude": 175,
+     "largeurs": [{"l": 60, "prix": 72, "ref": "SH60"}, {"l": 80, "prix": 89, "ref": "SH80"}]},
+    {"id": "col-rangement", "nom": "Colonne rangement", "categorie": "colonnes", "type": "colonne", "modele": "rangement",
+     "largeurs": [{"l": 40, "prix": 229, "ref": "CR40"}, {"l": 60, "prix": 279, "ref": "CR60"}], "largeurDefaut": 60},
+    {"id": "col-four", "nom": "Colonne four", "categorie": "colonnes", "type": "colonne", "modele": "four",
+     "largeurs": [{"l": 60, "prix": 689, "ref": "CF60"}]},
+    {"id": "col-frigo", "nom": "Colonne réfrigérateur", "categorie": "colonnes", "type": "colonne", "modele": "frigo",
+     "largeurs": [{"l": 60, "prix": 949, "ref": "CRF60"}]},
+    {"id": "plaque", "nom": "Meuble + plaque induction", "categorie": "electro", "type": "bas", "modele": "plaque",
+     "largeurs": [{"l": 60, "prix": 419, "ref": "PI60"}, {"l": 80, "prix": 529, "ref": "PI80"}]},
+    {"id": "lave-vaisselle", "nom": "Lave-vaisselle intégrable", "categorie": "electro", "type": "bas", "modele": "lave-vaisselle",
+     "largeurs": [{"l": 45, "prix": 399, "ref": "LV45"}, {"l": 60, "prix": 449, "ref": "LV60"}], "largeurDefaut": 60},
+    {"id": "hotte", "nom": "Hotte box inox", "categorie": "electro", "type": "haut", "modele": "hotte", "profondeur": 50,
+     "largeurs": [{"l": 60, "prix": 289, "ref": "HB60"}, {"l": 90, "prix": 349, "ref": "HB90"}]}
+  ],
+  "finitions": {
+    "facades": [
+      {"id": "blanc", "nom": "Blanc mat", "couleur": "#F1F0EC", "rugosite": 0.55},
+      {"id": "chene", "nom": "Chêne clair", "couleur": "#C9A67C", "rugosite": 0.8},
+      {"id": "sauge", "nom": "Vert sauge", "couleur": "#8EA58C", "rugosite": 0.6},
+      {"id": "nuit", "nom": "Bleu nuit", "couleur": "#2D3E55", "rugosite": 0.5},
+      {"id": "anthracite", "nom": "Anthracite", "couleur": "#3B3E41", "rugosite": 0.55}
+    ],
+    "plans": [
+      {"id": "chene", "nom": "Chêne massif", "couleur": "#B98A5A", "rugosite": 0.7, "prixMl": 129},
+      {"id": "quartz", "nom": "Quartz blanc", "couleur": "#EBE8E2", "rugosite": 0.25, "prixMl": 289},
+      {"id": "beton", "nom": "Effet béton", "couleur": "#9C9A94", "rugosite": 0.8, "prixMl": 99},
+      {"id": "noir", "nom": "Stratifié noir", "couleur": "#262626", "rugosite": 0.4, "prixMl": 89}
+    ],
+    "poignees": [
+      {"id": "inox", "nom": "Barre inox", "couleur": "#B8BCC0", "metal": 0.8},
+      {"id": "noir", "nom": "Barre noire", "couleur": "#1E1E1E", "metal": 0.3},
+      {"id": "laiton", "nom": "Laiton brossé", "couleur": "#B08D57", "metal": 0.8}
+    ]
+  }
+}
