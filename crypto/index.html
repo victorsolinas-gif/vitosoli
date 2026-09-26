@@ -483,23 +483,38 @@ function buildKeyFromLines(lines, ignoreCase){
   return res;
 }
 
+// "!" ne peut jamais apparaître dans une coordonnée légitime (toujours
+// [lettres][chiffres]) : l'échappement est donc sans ambiguïté au décodage.
+const ESCAPE_PREFIX = '!';
+
 function encodeMessage(message, res, ignoreCase){
+  // Un caractère absent de la page (accent rare, symbole, chiffre...) est
+  // échappé via son code Unicode plutôt que de faire échouer tout le
+  // message. La couche AES appliquée juste après protège ce caractère
+  // exactement comme les autres.
   const coords = [];
-  const missing = new Set();
   for (const rawCh of message){
     const ch = ignoreCase ? rawCh.toLowerCase() : rawCh;
     const options = res[ch];
-    if (!options || options.length === 0){ missing.add(rawCh); continue; }
-    coords.push(options[Math.floor(Math.random() * options.length)]);
+    if (options && options.length){
+      coords.push(options[Math.floor(Math.random() * options.length)]);
+    } else {
+      coords.push(ESCAPE_PREFIX + rawCh.codePointAt(0));
+    }
   }
-  if (missing.size) throw new Error('Caractères absents de la page-clé : ' + Array.from(missing).join(' '));
   return coords;
 }
 
 function decodeMessage(coords, res){
   const reverse = {};
   for (const ch in res) for (const pos of res[ch]) reverse[pos] = ch;
-  return coords.map(c => reverse[c] !== undefined ? reverse[c] : '?').join('');
+  return coords.map(c => {
+    if (c.startsWith(ESCAPE_PREFIX)){
+      const code = parseInt(c.slice(ESCAPE_PREFIX.length), 10);
+      if (!isNaN(code)) return String.fromCodePoint(code);
+    }
+    return reverse[c] !== undefined ? reverse[c] : '?';
+  }).join('');
 }
 
 // ---------- AES-256-GCM (Web Crypto native) ----------
