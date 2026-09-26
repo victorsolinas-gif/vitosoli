@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chiffrement — Vitosoli</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.0.1/tesseract.min.js"></script>
+<style>
+  :root{
+    --ink: #10141c;
+    --panel: #1a212c;
+    --panel-2: #212a37;
+    --paper: #f4efe1;
+    --paper-ink: #2b2620;
+    --text: #e9e4d6;
+    --muted: #8b93a3;
+    --wax: #c1443c;
+    --wax-bright: #e0655c;
+    --gold: #d1a954;
+    --line: #2a3341;
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background: radial-gradient(1200px 600px at 50% -10%, #1c2431 0%, var(--ink) 60%);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    padding-bottom: env(safe-area-inset-bottom);
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap{ max-width: 640px; margin: 0 auto; padding: 20px 16px 40px; }
+
+  header{ padding: 18px 4px 14px; }
+  .eyebrow{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--gold);
+    display:flex; align-items:center; gap:8px;
+  }
+  .eyebrow::before{ content:"§"; font-size: 14px; }
+  h1{
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 30px;
+    line-height: 1.1;
+    margin: 6px 0 4px;
+    letter-spacing: -0.01em;
+  }
+  header p{ color: var(--muted); font-size: 14px; margin: 0; line-height: 1.5; }
+
+  .steps{
+    display:flex; gap:6px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 5px;
+    position: sticky; top: 10px; z-index: 20;
+    margin: 18px 0 18px;
+  }
+  .step-btn{
+    flex:1;
+    border:none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 6px;
+    border-radius: 10px;
+    cursor:pointer;
+    transition: background .15s ease, color .15s ease;
+  }
+  .step-btn .num{
+    font-family:'IBM Plex Mono', monospace;
+    font-weight: 400;
+    opacity:.7;
+    margin-right: 4px;
+  }
+  .step-btn.active{ background: var(--wax); color: #fff6f2; }
+  .step-btn.active .num{ opacity: .9; }
+  .step-btn:disabled{ opacity: .4; cursor: not-allowed; }
+
+  .panel{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
+  .panel h2{
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 17px;
+    margin: 0 0 4px;
+  }
+  .panel .hint{ color: var(--muted); font-size: 13px; margin: 0 0 14px; line-height: 1.5; }
+
+  .view{ display:none; }
+  .view.active{ display:block; animation: fade .25s ease; }
+  @keyframes fade{ from{opacity:0; transform: translateY(4px);} to{opacity:1; transform:none;} }
+
+  .drop{
+    border: 1.5px dashed var(--line);
+    border-radius: 14px;
+    padding: 26px 16px;
+    text-align:center;
+    cursor:pointer;
+    background: var(--panel-2);
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .drop:active{ background:#243040; }
+  .drop .ico{ font-size: 26px; margin-bottom: 8px; display:block; }
+  .drop .main{ font-weight: 600; font-size: 14px; }
+  .drop .sub{ color: var(--muted); font-size: 12px; margin-top: 4px; }
+  input[type=file]{ display:none; }
+
+  .row{ display:flex; gap:12px; margin-top: 14px; flex-wrap: wrap; }
+  .field{ flex:1; min-width: 120px; }
+  .field label{
+    display:block; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .field input[type=number]{
+    width:100%; background: var(--panel-2); border: 1px solid var(--line);
+    color: var(--text); border-radius: 10px; padding: 10px 12px; font-size: 15px;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .checkline{
+    display:flex; align-items:center; gap:8px; margin-top: 14px;
+    font-size: 13px; color: var(--text);
+  }
+  .checkline input{ width: 18px; height: 18px; accent-color: var(--wax); }
+
+  button.primary{
+    width: 100%;
+    background: var(--wax);
+    color: #fff6f2;
+    border: none;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    margin-top: 16px;
+    cursor: pointer;
+    transition: background .15s ease, transform .1s ease;
+  }
+  button.primary:active{ transform: scale(.98); background: var(--wax-bright); }
+  button.primary:disabled{ background:#3a4150; color: var(--muted); cursor:not-allowed; }
+
+  button.ghost{
+    background: transparent;
+    color: var(--gold);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 9px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+  }
+
+  textarea{
+    width:100%;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 12px;
+    padding: 12px;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    resize: vertical;
+    min-height: 90px;
+  }
+  textarea.mono{ font-family:'IBM Plex Mono', monospace; color: var(--gold); font-size: 13px; }
+
+  .progress{
+    display:none;
+    align-items:center; gap:10px;
+    margin-top: 14px; font-size: 13px; color: var(--muted);
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .progress.active{ display:flex; }
+  .spinner{
+    width:14px; height:14px; border-radius:50%;
+    border: 2px solid var(--line); border-top-color: var(--gold);
+    animation: spin .7s linear infinite; flex-shrink:0;
+  }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+  .bar{
+    flex:1; height:4px; background: var(--line); border-radius:2px; overflow:hidden;
+  }
+  .bar > div{ height:100%; background: var(--gold); width:0%; transition: width .2s ease; }
+
+  /* Aperçu façon page annotée — élément signature */
+  .page-preview{
+    background: var(--paper);
+    color: var(--paper-ink);
+    border-radius: 12px;
+    padding: 16px 14px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .page-preview .pline{
+    display:flex; align-items:flex-end; gap:1px; margin-bottom: 12px;
+    white-space: nowrap;
+  }
+  .page-preview .cell{
+    display:flex; flex-direction:column; align-items:center;
+    min-width: 13px;
+  }
+  .page-preview .ch{
+    font-family: 'Fraunces', serif;
+    font-size: 16px;
+    line-height: 1;
+  }
+  .page-preview .coord{
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    color: #a6673f;
+    margin-top: 2px;
+    opacity: .75;
+  }
+  .page-preview .rlabel{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--wax);
+    font-weight: 700;
+    margin-right: 6px;
+    align-self:center;
+  }
+  .empty-preview{ color: var(--muted); font-size: 13px; text-align:center; padding: 20px 0; }
+
+  .key-status{
+    display:flex; align-items:center; gap:8px;
+    font-size: 12px; color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .dot{ width:7px; height:7px; border-radius:50%; background:#4a5364; flex-shrink:0; }
+  .dot.on{ background: #6fbf73; box-shadow: 0 0 6px #6fbf7388; }
+
+  .banner{
+    background: #2a2116;
+    border: 1px solid #4a3a22;
+    color: #e8c98f;
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    margin-bottom: 16px;
+  }
+  .banner b{ color: #f2d9a8; }
+
+  .actions-row{ display:flex; gap:10px; margin-top: 12px; }
+  .actions-row button{ flex:1; }
+
+  footer{ text-align:center; color: var(--muted); font-size: 11px; margin-top: 8px; font-family:'IBM Plex Mono', monospace; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Chiffrement · Vitosoli</div>
+    <h1>Book Cipher + AES</h1>
+    <p>Le message passe par deux couches : une grille de coordonnées tirée d'une page (le livre est la clé), puis un chiffrement AES-256-GCM par mot de passe. Il faut les deux pour déchiffrer.</p>
+  </header>
+
+  <div class="banner">
+    <b>À savoir :</b> tout se passe dans ce navigateur (OCR, lecture PDF, chiffrement AES natif), rien n'est envoyé sur un serveur. La résistance réelle vient de la couche AES (mot de passe) ; la couche book cipher ajoute une barrière supplémentaire si jamais le mot de passe fuite, mais ne remplace pas un mot de passe fort.
+  </div>
+
+  <div class="steps">
+    <button class="step-btn active" data-view="v1">01 <span class="hide-sm">Clé</span></button>
+    <button class="step-btn" data-view="v2" id="btnStep2" disabled>02 <span class="hide-sm">Chiffrer</span></button>
+    <button class="step-btn" data-view="v3" id="btnStep3" disabled>03 <span class="hide-sm">Déchiffrer</span></button>
+  </div>
+
+  <!-- VIEW 1 : construire la clé -->
+  <div class="view active" id="v1">
+    <div class="panel">
+      <h2>Source de la page</h2>
+      <p class="hint">Photo, PDF, ou saisie manuelle du texte — dans tous les cas, chaque caractère reçoit une coordonnée selon sa ligne et sa position.</p>
+
+      <div class="steps" style="position:static; margin-bottom:16px;">
+        <button class="step-btn active" data-mode="file" id="modeFileBtn" type="button">📷 Photo / PDF</button>
+        <button class="step-btn" data-mode="text" id="modeTextBtn" type="button">⌨️ Texte manuel</button>
+      </div>
+
+      <div id="modeFile">
+        <label class="drop" id="drop">
+          <input type="file" id="fileInput" accept="image/*,application/pdf">
+          <span class="ico">📖</span>
+          <span class="main" id="dropLabel">Choisir une photo ou un PDF</span>
+          <span class="sub">JPG, PNG ou PDF</span>
+        </label>
+
+        <div class="row" id="pdfRow" style="display:none;">
+          <div class="field">
+            <label>Page du PDF</label>
+            <input type="number" id="pageNum" value="1" min="1">
+          </div>
+        </div>
+
+        <div class="checkline">
+          <input type="checkbox" id="ignoreCase" checked>
+          <label for="ignoreCase">Ignorer majuscules/minuscules (recommandé)</label>
+        </div>
+
+        <button class="primary" id="buildBtn" disabled>Construire la clé (OCR)</button>
+
+        <div class="progress" id="progress">
+          <div class="spinner"></div>
+          <span id="progressLabel">Lecture…</span>
+          <div class="bar"><div id="progressBar"></div></div>
+        </div>
+      </div>
+
+      <div id="modeText" style="display:none;">
+        <p class="hint" style="margin-top:0;">Recopie le texte de la page telle qu'elle est imprimée, ligne par ligne (une ligne du livre = une ligne ici). Utile si l'OCR se trompe, ou si tu préfères taper directement.</p>
+        <textarea id="manualText" placeholder="je suis content de vous ecrire&#10;ce message secret aujourdhui&#10;car il fait beau dehors"></textarea>
+
+        <div class="checkline">
+          <input type="checkbox" id="ignoreCaseManual" checked>
+          <label for="ignoreCaseManual">Ignorer majuscules/minuscules (recommandé)</label>
+        </div>
+
+        <button class="primary" id="buildFromTextBtn">Construire la clé (texte saisi)</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Page annotée</h2>
+      <p class="hint">Chaque caractère reçoit une coordonnée (ligne + position). C'est ce réservoir qui sert à coder et décoder.</p>
+      <div class="page-preview" id="preview">
+        <div class="empty-preview">Aucune page analysée pour l'instant.</div>
+      </div>
+      <div class="key-status">
+        <span class="dot" id="keyDot"></span>
+        <span id="keyStatusText">Aucune clé en mémoire</span>
+      </div>
+      <div class="actions-row">
+        <button class="ghost" id="saveKeyBtn">↓ Sauvegarder la clé (.json)</button>
+        <button class="ghost" id="loadKeyBtn">↑ Charger une clé</button>
+      </div>
+      <input type="file" id="keyFileInput" accept="application/json" style="display:none;">
+    </div>
+  </div>
+
+  <!-- VIEW 2 : chiffrer -->
+  <div class="view" id="v2">
+    <div class="panel">
+      <h2>Message en clair</h2>
+      <p class="hint">Chaque caractère pioche une coordonnée dans le réservoir de la page, puis le résultat est automatiquement chiffré avec AES-256-GCM.</p>
+      <textarea id="plainIn" placeholder="Écris ton message ici…"></textarea>
+
+      <div class="field" style="margin-top:14px;">
+        <label>Mot de passe AES</label>
+        <input type="password" id="encPassword" placeholder="Mot de passe" style="width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:10px 12px; font-size:15px; margin-top:6px;">
+      </div>
+      <div class="field" style="margin-top:10px;">
+        <label>Confirmer</label>
+        <input type="password" id="encPasswordConfirm" placeholder="Retape le mot de passe" style="width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:10px 12px; font-size:15px; margin-top:6px;">
+      </div>
+
+      <button class="primary" id="encodeBtn">Chiffrer (book cipher + AES) →</button>
+    </div>
+    <div class="panel">
+      <h2>Message chiffré</h2>
+      <p class="hint">Bloc chiffré final (base64) — à copier/coller ou télécharger en fichier <code>.sbc</code>.</p>
+      <textarea class="mono" id="codedOut" readonly placeholder="Le résultat chiffré apparaîtra ici…"></textarea>
+      <div class="actions-row">
+        <button class="ghost" id="copyCodedBtn">Copier</button>
+        <button class="ghost" id="downloadCodedBtn">↓ Télécharger .sbc</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 3 : déchiffrer -->
+  <div class="view" id="v3">
+    <div class="panel">
+      <h2>Message chiffré reçu</h2>
+      <p class="hint">Colle le bloc base64 reçu, ou charge le fichier <code>.sbc</code>. Il faut avoir construit (onglet 1) la clé depuis la <b>même page du même livre</b>, et connaître le mot de passe.</p>
+      <textarea class="mono" id="codedIn" placeholder="Colle ici le bloc chiffré (base64)…"></textarea>
+      <div class="actions-row">
+        <button class="ghost" id="loadSbcBtn">↑ Charger un fichier .sbc</button>
+      </div>
+      <input type="file" id="sbcFileInput" accept=".sbc,application/octet-stream" style="display:none;">
+
+      <div class="field" style="margin-top:14px;">
+        <label>Mot de passe AES</label>
+        <input type="password" id="decPassword" placeholder="Mot de passe" style="width:100%; background:var(--panel-2); border:1px solid var(--line); color:var(--text); border-radius:10px; padding:10px 12px; font-size:15px; margin-top:6px;">
+      </div>
+
+      <button class="primary" id="decodeBtn">Déchiffrer (AES + book cipher) →</button>
+    </div>
+    <div class="panel">
+      <h2>Message en clair</h2>
+      <textarea id="plainOut" readonly></textarea>
+    </div>
+  </div>
+
+  <footer>Book Cipher + AES-256-GCM — traitement 100% local, dans ce navigateur</footer>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ---------- état ----------
+let reservoir = null; // { char: [coord, coord, ...] }
+let lastLines = [];
+let keyIgnoreCase = true; // casse utilisée lors de la construction de la clé active
+
+// ---------- bascule mode source (fichier / texte manuel) ----------
+const modeFileBtn = document.getElementById('modeFileBtn');
+const modeTextBtn = document.getElementById('modeTextBtn');
+const modeFile = document.getElementById('modeFile');
+const modeText = document.getElementById('modeText');
+modeFileBtn.addEventListener('click', () => {
+  modeFileBtn.classList.add('active');
+  modeTextBtn.classList.remove('active');
+  modeFile.style.display = '';
+  modeText.style.display = 'none';
+});
+modeTextBtn.addEventListener('click', () => {
+  modeTextBtn.classList.add('active');
+  modeFileBtn.classList.remove('active');
+  modeText.style.display = '';
+  modeFile.style.display = 'none';
+});
+
+// ---------- navigation ----------
+const views = { v1: document.getElementById('v1'), v2: document.getElementById('v2'), v3: document.getElementById('v3') };
+const stepBtns = document.querySelectorAll('.step-btn');
+stepBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.disabled) return;
+    stepBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    Object.values(views).forEach(v => v.classList.remove('active'));
+    views[btn.dataset.view].classList.add('active');
+  });
+});
+
+function unlockSteps(){
+  document.getElementById('btnStep2').disabled = false;
+  document.getElementById('btnStep3').disabled = false;
+}
+
+// ---------- utilitaires clé ----------
+function rowLabel(index){
+  const letters = 'abcdefghijklmnopqrstuvwxyz';
+  let n = index + 1, label = '';
+  while (n > 0){
+    const rem = (n - 1) % 26;
+    label = letters[rem] + label;
+    n = Math.floor((n - 1) / 26);
+  }
+  return label;
+}
+
+function buildKeyFromLines(lines, ignoreCase){
+  const res = {};
+  lines.forEach((line, i) => {
+    const rlabel = rowLabel(i);
+    for (let j = 0; j < line.length; j++){
+      let ch = line[j];
+      if (ignoreCase) ch = ch.toLowerCase();
+      const coord = rlabel + (j + 1);
+      if (!res[ch]) res[ch] = [];
+      res[ch].push(coord);
+    }
+  });
+  return res;
+}
+
+function encodeMessage(message, res, ignoreCase){
+  const coords = [];
+  const missing = new Set();
+  for (const rawCh of message){
+    const ch = ignoreCase ? rawCh.toLowerCase() : rawCh;
+    const options = res[ch];
+    if (!options || options.length === 0){ missing.add(rawCh); continue; }
+    coords.push(options[Math.floor(Math.random() * options.length)]);
+  }
+  if (missing.size) throw new Error('Caractères absents de la page-clé : ' + Array.from(missing).join(' '));
+  return coords;
+}
+
+function decodeMessage(coords, res){
+  const reverse = {};
+  for (const ch in res) for (const pos of res[ch]) reverse[pos] = ch;
+  return coords.map(c => reverse[c] !== undefined ? reverse[c] : '?').join('');
+}
+
+// ---------- AES-256-GCM (Web Crypto native) ----------
+// Format du blob : [salt 16 octets][iv 12 octets][ciphertext + tag GCM]
+const PBKDF2_ITERATIONS = 600000; // recommandation OWASP pour PBKDF2-SHA256
+const SALT_LEN = 16;
+const IV_LEN = 12;
+
+async function deriveAesKey(password, salt){
+  const enc = new TextEncoder();
+  const baseKey = await crypto.subtle.importKey(
+    'raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function aesEncryptText(plaintext, password){
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_LEN));
+  const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
+  const key = await deriveAesKey(password, salt);
+  const enc = new TextEncoder();
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(plaintext));
+  const blob = new Uint8Array(SALT_LEN + IV_LEN + ciphertext.byteLength);
+  blob.set(salt, 0);
+  blob.set(iv, SALT_LEN);
+  blob.set(new Uint8Array(ciphertext), SALT_LEN + IV_LEN);
+  return blob;
+}
+
+async function aesDecryptBlob(blob, password){
+  if (blob.length < SALT_LEN + IV_LEN){
+    throw new Error('Contenu trop court pour être un blob chiffré valide.');
+  }
+  const salt = blob.slice(0, SALT_LEN);
+  const iv = blob.slice(SALT_LEN, SALT_LEN + IV_LEN);
+  const ciphertext = blob.slice(SALT_LEN + IV_LEN);
+  const key = await deriveAesKey(password, salt);
+  try{
+    const plainBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+    return new TextDecoder().decode(plainBuf);
+  } catch(e){
+    throw new Error('Échec du déchiffrement : mot de passe incorrect, ou contenu corrompu/modifié.');
+  }
+}
+
+function bytesToBase64(bytes){
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk){
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function base64ToBytes(b64){
+  const binary = atob(b64.trim());
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+// ---------- UI : fichier source ----------
+const fileInput = document.getElementById('fileInput');
+const dropLabel = document.getElementById('dropLabel');
+const pdfRow = document.getElementById('pdfRow');
+const buildBtn = document.getElementById('buildBtn');
+let currentFile = null;
+
+document.getElementById('drop').addEventListener('click', (e) => {
+  if (e.target !== fileInput) fileInput.click();
+});
+fileInput.addEventListener('change', () => {
+  const f = fileInput.files[0];
+  if (!f) return;
+  currentFile = f;
+  dropLabel.textContent = f.name;
+  pdfRow.style.display = f.type === 'application/pdf' ? 'flex' : 'none';
+  buildBtn.disabled = false;
+});
+
+// ---------- OCR / PDF ----------
+async function fileToImageBitmapSource(file, pageNum){
+  if (file.type === 'application/pdf'){
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const page = await pdf.getPage(Math.max(1, pageNum || 1));
+    const viewport = page.getViewport({ scale: 2.2 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    return canvas;
+  }
+  return file;
+}
+
+function setProgress(active, label, pct){
+  const p = document.getElementById('progress');
+  p.classList.toggle('active', active);
+  if (label) document.getElementById('progressLabel').textContent = label;
+  if (typeof pct === 'number') document.getElementById('progressBar').style.width = pct + '%';
+}
+
+buildBtn.addEventListener('click', async () => {
+  if (!currentFile) return;
+  buildBtn.disabled = true;
+  setProgress(true, 'Préparation…', 5);
+  try{
+    const pageNum = parseInt(document.getElementById('pageNum').value || '1', 10);
+    const source = await fileToImageBitmapSource(currentFile, pageNum);
+    setProgress(true, 'Reconnaissance du texte…', 20);
+
+    const { data } = await Tesseract.recognize(source, 'fra+eng', {
+      logger: m => {
+        if (m.status === 'recognizing text'){
+          setProgress(true, 'Reconnaissance du texte…', 20 + Math.round(m.progress * 70));
+        }
+      }
+    });
+
+    let lines = data.text.split('\n').map(l => l.replace(/\r$/, ''));
+    lines = lines.filter(l => l.trim() !== '');
+    lastLines = lines;
+
+    keyIgnoreCase = document.getElementById('ignoreCase').checked;
+    reservoir = buildKeyFromLines(lines, keyIgnoreCase);
+
+    renderPreview(lines);
+    updateKeyStatus();
+    unlockSteps();
+    setProgress(false);
+  } catch(err){
+    setProgress(false);
+    alert('Erreur pendant l\'analyse : ' + err.message);
+  } finally {
+    buildBtn.disabled = false;
+  }
+});
+
+// ---------- construire la clé depuis un texte saisi manuellement ----------
+document.getElementById('buildFromTextBtn').addEventListener('click', () => {
+  const raw = document.getElementById('manualText').value;
+  let lines = raw.split('\n').map(l => l.replace(/\r$/, ''));
+  lines = lines.filter(l => l.trim() !== '');
+  if (!lines.length){
+    alert('Saisis d\'abord le texte de la page.');
+    return;
+  }
+  lastLines = lines;
+  keyIgnoreCase = document.getElementById('ignoreCaseManual').checked;
+  reservoir = buildKeyFromLines(lines, keyIgnoreCase);
+  renderPreview(lines);
+  updateKeyStatus();
+  unlockSteps();
+});
+
+function renderPreview(lines){
+  const el = document.getElementById('preview');
+  if (!lines.length){
+    el.innerHTML = '<div class="empty-preview">Aucun texte reconnu sur cette page.</div>';
+    return;
+  }
+  el.innerHTML = '';
+  lines.forEach((line, i) => {
+    const rlabel = rowLabel(i);
+    const row = document.createElement('div');
+    row.className = 'pline';
+    const rl = document.createElement('span');
+    rl.className = 'rlabel';
+    rl.textContent = rlabel;
+    row.appendChild(rl);
+    for (let j = 0; j < line.length; j++){
+      const cell = document.createElement('span');
+      cell.className = 'cell';
+      const ch = document.createElement('span');
+      ch.className = 'ch';
+      ch.textContent = line[j] === ' ' ? '·' : line[j];
+      const coord = document.createElement('span');
+      coord.className = 'coord';
+      coord.textContent = rlabel + (j + 1);
+      cell.appendChild(ch);
+      cell.appendChild(coord);
+      row.appendChild(cell);
+    }
+    el.appendChild(row);
+  });
+}
+
+function updateKeyStatus(){
+  const dot = document.getElementById('keyDot');
+  const text = document.getElementById('keyStatusText');
+  if (!reservoir){
+    dot.classList.remove('on');
+    text.textContent = 'Aucune clé en mémoire';
+    return;
+  }
+  const total = Object.values(reservoir).reduce((a, v) => a + v.length, 0);
+  const distinct = Object.keys(reservoir).length;
+  dot.classList.add('on');
+  text.textContent = `Clé active — ${total} positions, ${distinct} caractères distincts`;
+}
+
+// ---------- sauvegarde / chargement clé ----------
+document.getElementById('saveKeyBtn').addEventListener('click', () => {
+  if (!reservoir){ alert('Construis d\'abord une clé.'); return; }
+  const blob = new Blob([JSON.stringify({ meta: { lines: lastLines.length, ignoreCase: keyIgnoreCase }, reservoir }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'cle_book_cipher.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+});
+
+const keyFileInput = document.getElementById('keyFileInput');
+document.getElementById('loadKeyBtn').addEventListener('click', () => keyFileInput.click());
+keyFileInput.addEventListener('change', async () => {
+  const f = keyFileInput.files[0];
+  if (!f) return;
+  try{
+    const text = await f.text();
+    const data = JSON.parse(text);
+    reservoir = data.reservoir;
+    keyIgnoreCase = data.meta && typeof data.meta.ignoreCase === 'boolean' ? data.meta.ignoreCase : true;
+    updateKeyStatus();
+    unlockSteps();
+    document.getElementById('preview').innerHTML = '<div class="empty-preview">Clé chargée depuis un fichier — aperçu de la page non disponible.</div>';
+  } catch(err){
+    alert('Fichier de clé invalide.');
+  }
+});
+
+// ---------- chiffrer : book cipher -> AES-256-GCM ----------
+let lastEncryptedBlob = null;
+
+document.getElementById('encodeBtn').addEventListener('click', async () => {
+  if (!reservoir){ alert('Construis ou charge une clé (onglet 1).'); return; }
+  const msg = document.getElementById('plainIn').value;
+  const pw = document.getElementById('encPassword').value;
+  const pwConfirm = document.getElementById('encPasswordConfirm').value;
+
+  if (!pw){ alert('Choisis un mot de passe AES.'); return; }
+  if (pw !== pwConfirm){ alert('Les deux mots de passe ne correspondent pas.'); return; }
+
+  const btn = document.getElementById('encodeBtn');
+  btn.disabled = true;
+  try{
+    const coords = encodeMessage(msg, reservoir, keyIgnoreCase);
+    const codedText = coords.join(' ');
+    const blob = await aesEncryptText(codedText, pw);
+    lastEncryptedBlob = blob;
+    document.getElementById('codedOut').value = bytesToBase64(blob);
+  } catch(err){
+    alert(err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('copyCodedBtn').addEventListener('click', () => {
+  const ta = document.getElementById('codedOut');
+  ta.select(); ta.setSelectionRange(0, 999999);
+  document.execCommand('copy');
+});
+
+document.getElementById('downloadCodedBtn').addEventListener('click', () => {
+  if (!lastEncryptedBlob){ alert('Chiffre d\'abord un message.'); return; }
+  const blob = new Blob([lastEncryptedBlob], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'message.sbc';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+});
+
+// ---------- déchiffrer : AES-256-GCM -> book cipher ----------
+const sbcFileInput = document.getElementById('sbcFileInput');
+document.getElementById('loadSbcBtn').addEventListener('click', () => sbcFileInput.click());
+sbcFileInput.addEventListener('change', async () => {
+  const f = sbcFileInput.files[0];
+  if (!f) return;
+  const buf = new Uint8Array(await f.arrayBuffer());
+  document.getElementById('codedIn').value = bytesToBase64(buf);
+});
+
+document.getElementById('decodeBtn').addEventListener('click', async () => {
+  if (!reservoir){ alert('Construis ou charge une clé (onglet 1) — celle de la même page.'); return; }
+  const b64 = document.getElementById('codedIn').value.trim();
+  const pw = document.getElementById('decPassword').value;
+  if (!b64){ alert('Colle ou charge d\'abord un message chiffré.'); return; }
+  if (!pw){ alert('Saisis le mot de passe AES.'); return; }
+
+  const btn = document.getElementById('decodeBtn');
+  btn.disabled = true;
+  try{
+    const blob = base64ToBytes(b64);
+    const codedText = await aesDecryptBlob(blob, pw);
+    const coords = codedText.split(/\s+/).filter(Boolean);
+    document.getElementById('plainOut').value = decodeMessage(coords, reservoir);
+  } catch(err){
+    alert(err.message);
+  } finally {
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
