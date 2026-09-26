@@ -16,9 +16,18 @@ const app = express()
 const PORT = process.env.PORT || 3000
 const resolveMx = promisify(dns.resolveMx)
 
-const JWT_SECRET = process.env.JWT_SECRET || 'vitosoli-dev-secret-change-me'
+const JWT_SECRET = process.env.JWT_SECRET
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'changeme'
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || ''
 const SITE_URL = process.env.SITE_URL || 'https://vitosoli.com'
+
+if (!JWT_SECRET) {
+  console.error('ERREUR CRITIQUE: JWT_SECRET n est pas definie. Arret du serveur pour eviter un secret devinable.')
+  process.exit(1)
+}
+if (!ADMIN_EMAIL) {
+  console.warn('ADMIN_EMAIL non definie - la double verification admin ne pourra pas envoyer de code')
+}
 
 // ── STRIPE ──
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null
@@ -195,6 +204,76 @@ async function sendEmail(to, subject, html) {
     console.error('Erreur envoi email:', err.message)
     return false
   }
+}
+
+// ============================================
+// DOUBLE VERIFICATION (2FA par code email)
+// ============================================
+// Stockage en memoire des codes en attente de validation. Une entree expire
+// d'elle-meme apres CODE_TTL_MS ; un nettoyage periodique purge les entrees perimees.
+const twoFactorCodes = new Map() // cle -> { code, expiresAt, attempts, payload }
+const CODE_TTL_MS = 10 * 60 * 1000 // 10 minutes
+const MAX_CODE_ATTEMPTS = 5
+
+function generateSixDigitCode() {
+  return String(crypto.randomInt(0, 1000000)).padStart(6, '0')
+}
+
+function storeTwoFactorCode(key, payload) {
+  const code = generateSixDigitCode()
+  twoFactorCodes.set(key, {
+    code,
+    expiresAt: Date.now() + CODE_TTL_MS,
+    attempts: 0,
+    payload: payload || null
+  })
+  return code
+}
+
+// Verifie un code fourni pour une cle donnee. Retourne { ok, error, payload }.
+// Consomme (supprime) l'entree en cas de succes ou d'epuisement des tentatives.
+function verifyTwoFactorCode(key, submittedCode) {
+  const entry = twoFactorCodes.get(key)
+  if (!entry) {
+    return { ok: false, error: 'Code expire ou introuvable. Redemandez un code.' }
+  }
+  if (Date.now() > entry.expiresAt) {
+    twoFactorCodes.delete(key)
+    return { ok: false, error: 'Code expire. Redemandez un code.' }
+  }
+  entry.attempts += 1
+  if (entry.attempts > MAX_CODE_ATTEMPTS) {
+    twoFactorCodes.delete(key)
+    return { ok: false, error: 'Trop de tentatives. Redemandez un code.' }
+  }
+  // Comparaison a temps constant pour eviter une fuite d'information par timing
+  const a = Buffer.from(String(submittedCode).padStart(6, '0'))
+  const b = Buffer.from(entry.code)
+  const match = a.length === b.length && crypto.timingSafeEqual(a, b)
+  if (!match) {
+    return { ok: false, error: 'Code incorrect.' }
+  }
+  twoFactorCodes.delete(key)
+  return { ok: true, payload: entry.payload }
+}
+
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, entry] of twoFactorCodes) {
+    if (now > entry.expiresAt) twoFactorCodes.delete(key)
+  }
+}, CODE_TTL_MS)
+
+function twoFactorEmailHtml(code) {
+  const parts = []
+  parts.push('<div style="font-family:Inter,Arial,sans-serif;max-width:480px;margin:0 auto;background:#0d0f1c;color:#e8e6ff;border-radius:16px;padding:32px;border:1px solid rgba(255,255,255,0.07)">')
+  parts.push('<div style="text-align:center;margin-bottom:24px"><div style="display:inline-flex;width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#7c5cfc,#e040fb,#00d4ff);align-items:center;justify-content:center;font-size:22px;color:#fff;line-height:48px">&#10022;</div></div>')
+  parts.push('<h2 style="text-align:center;color:#a78bfa;font-size:22px;margin-bottom:16px">Code de verification Vitosoli</h2>')
+  parts.push('<p style="font-size:14px;line-height:1.6;color:#a0a0c0;text-align:center">Voici votre code de connexion :</p>')
+  parts.push('<div style="text-align:center;margin:24px 0"><span style="display:inline-block;padding:16px 28px;border-radius:12px;background:#171728;color:#fff;font-size:28px;font-weight:700;letter-spacing:8px">' + code + '</span></div>')
+  parts.push('<p style="font-size:12px;color:#6b6d8a;text-align:center">Ce code est valable 10 minutes. Si vous n avez pas demande cette connexion, ignorez cet email.</p>')
+  parts.push('</div>')
+  return parts.join('')
 }
 
 function verificationEmailHtml(link) {
@@ -473,10 +552,45 @@ app.post('/login', loginRateLimiter, async (req, res) => {
     return res.status(401).json({ error: genericError })
   }
 
-  await users.updateOne(
-    { email: emailLower },
-    { $set: { lastLogin: new Date() } }
-  )
+  // Mot de passe correct : declenche la double verification par code email
+  // avant de delivrer le token de session
+  const code = storeTwoFactorCode('login:' + emailLower, { email: emailLower })
+  const sent = await sendEmail(email, 'Votre code de connexion Vitosoli', twoFactorEmailHtml(code))
+
+  if (!sent && process.env.RESEND_API_KEY) {
+    return res.status(500).json({ error: 'Erreur lors de l envoi du code de verification. Reessayez.' })
+  }
+
+  res.json({ success: true, twoFactorRequired: true, message: 'Un code de verification a ete envoye a votre adresse email.' })
+})
+
+// ============================================
+// ROUTE: /login/verify-2fa
+// ============================================
+app.post('/login/verify-2fa', loginRateLimiter, async (req, res) => {
+  const { email, code } = req.body
+
+  if (!email || !isValidEmailFormat(email)) {
+    return res.status(400).json({ error: 'Adresse email invalide.' })
+  }
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ error: 'Code requis.' })
+  }
+
+  const emailLower = email.toLowerCase()
+  const result = verifyTwoFactorCode('login:' + emailLower, code)
+
+  if (!result.ok) {
+    return res.status(401).json({ error: result.error })
+  }
+
+  const database = await getDb()
+  if (database) {
+    await database.collection('users').updateOne(
+      { email: emailLower },
+      { $set: { lastLogin: new Date() } }
+    )
+  }
 
   const sessionToken = signToken({ email: emailLower, type: 'session' }, '30d')
   res.json({ success: true, token: sessionToken })
@@ -683,7 +797,7 @@ app.post('/chat', rateLimiter, async (req, res) => {
   // maxTokens optionnel envoye par le client (ex: pour un menu de la semaine plus long),
   // toujours plafonne cote serveur pour eviter tout abus
   const requestedMaxTokens = typeof maxTokens === 'number' ? maxTokens : 800
-  const finalMaxTokens = Math.min(Math.max(requestedMaxTokens, 100), 2000)
+  const finalMaxTokens = Math.min(Math.max(requestedMaxTokens, 100), 3500)
 
   const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')
   const hasAttachment = lastUserMsg && Array.isArray(lastUserMsg.content) &&
@@ -1211,14 +1325,80 @@ app.delete('/conversations/:id', rateLimiter, requireAuth, async (req, res) => {
 // ============================================
 // ROUTES ADMIN
 // ============================================
+// L'acces admin se fait desormais en deux temps :
+// 1) POST /api/admin/request-code avec le mot de passe -> envoie un code par email
+// 2) POST /api/admin/verify-code avec le code -> delivre un token admin temporaire (1h)
+// Ce token (pas le mot de passe) est ensuite fourni via le header x-admin-token
+// sur les routes de donnees, evitant de faire circuler le mot de passe en clair a chaque appel.
+const ADMIN_RATE_WINDOW_MS = 15 * 60 * 1000
+const MAX_ADMIN_ATTEMPTS = 5
+const adminAttempts = new Map()
+
+function adminRateLimiter(req, res, next) {
+  const ip = getClientIp(req)
+  const now = Date.now()
+  const entry = adminAttempts.get(ip) || { count: 0, start: now }
+  if (now - entry.start > ADMIN_RATE_WINDOW_MS) { entry.count = 0; entry.start = now }
+  entry.count++
+  adminAttempts.set(ip, entry)
+  if (entry.count > MAX_ADMIN_ATTEMPTS) {
+    return res.status(429).json({ error: 'Trop de tentatives. Reessayez dans 15 minutes.' })
+  }
+  next()
+}
+setInterval(() => {
+  const now = Date.now()
+  for (const [ip, entry] of adminAttempts) {
+    if (now - entry.start > ADMIN_RATE_WINDOW_MS) adminAttempts.delete(ip)
+  }
+}, ADMIN_RATE_WINDOW_MS)
+
 function checkAdmin(req, res) {
-  const pwd = req.headers['x-admin-password'] || req.query.password
-  if (pwd !== ADMIN_PASSWORD) {
-    res.status(401).json({ error: 'Mot de passe admin incorrect.' })
+  const token = req.headers['x-admin-token']
+  const payload = token ? verifyToken(token) : null
+  if (!payload || payload.type !== 'admin') {
+    res.status(401).json({ error: 'Session admin invalide ou expiree. Reconnectez-vous.' })
     return false
   }
   return true
 }
+
+app.post('/api/admin/request-code', adminRateLimiter, async (req, res) => {
+  const pwd = req.headers['x-admin-password'] || req.body.password
+  // Comparaison a temps constant pour eviter une fuite d'information par timing
+  const a = Buffer.from(String(pwd || ''))
+  const b = Buffer.from(ADMIN_PASSWORD)
+  const match = a.length === b.length && crypto.timingSafeEqual(a, b)
+  if (!match) {
+    return res.status(401).json({ error: 'Mot de passe admin incorrect.' })
+  }
+  if (!ADMIN_EMAIL) {
+    return res.status(503).json({ error: 'Double verification admin non configuree (ADMIN_EMAIL manquante).' })
+  }
+
+  const code = storeTwoFactorCode('admin', {})
+  const sent = await sendEmail(ADMIN_EMAIL, 'Code de connexion admin Vitosoli', twoFactorEmailHtml(code))
+  if (!sent && process.env.RESEND_API_KEY) {
+    return res.status(500).json({ error: 'Erreur lors de l envoi du code. Reessayez.' })
+  }
+
+  res.json({ success: true, message: 'Un code de verification a ete envoye.' })
+})
+
+app.post('/api/admin/verify-code', adminRateLimiter, async (req, res) => {
+  const { code } = req.body
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ error: 'Code requis.' })
+  }
+
+  const result = verifyTwoFactorCode('admin', code)
+  if (!result.ok) {
+    return res.status(401).json({ error: result.error })
+  }
+
+  const adminToken = signToken({ type: 'admin' }, '1h')
+  res.json({ success: true, token: adminToken })
+})
 
 app.get('/api/admin/users', async (req, res) => {
   if (!checkAdmin(req, res)) return
