@@ -116,6 +116,17 @@ tr:hover td{background:rgba(124,92,252,.04)}
   </div>
 </div>
 
+<!-- CODE GATE (double verification) -->
+<div class="gate" id="codeGate" style="display:none">
+  <div class="gate-card">
+    <h1>✦ Code de vérification</h1>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;text-align:center">Un code à 6 chiffres a été envoyé par email.</p>
+    <input type="text" id="codeInput" placeholder="123456" inputmode="numeric" maxlength="6" style="letter-spacing:6px;text-align:center;font-size:18px" onkeydown="if(event.key==='Enter')verifyCode()">
+    <button onclick="verifyCode()">Valider</button>
+    <div class="gate-error" id="codeError">Code incorrect.</div>
+  </div>
+</div>
+
 <!-- DASHBOARD -->
 <div class="dashboard" id="dashboard">
   <div class="header">
@@ -137,48 +148,93 @@ tr:hover td{background:rgba(124,92,252,.04)}
 </div>
 
 <script>
-let adminPassword = '';
+let adminToken = '';
 let currentTab = 'users';
 let dataCache = { users: [], guests: [] };
 
-function login(){
+async function login(){
   const pwd = document.getElementById('passwordInput').value;
-  adminPassword = pwd;
-  testAuth();
-}
+  const errorEl = document.getElementById('gateError');
+  errorEl.style.display = 'none';
 
-async function testAuth(){
   try {
-    const res = await fetch('https://vitosoli.onrender.com/api/admin/stats?password=' + encodeURIComponent(adminPassword));
+    const res = await fetch('https://vitosoli.onrender.com/api/admin/request-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pwd })
+    });
+    const data = await res.json();
+
     if(res.ok){
       document.getElementById('gate').style.display = 'none';
-      document.getElementById('dashboard').classList.add('visible');
-      sessionStorage.setItem('vitosoli_admin_pwd', adminPassword);
-      loadData();
+      document.getElementById('codeGate').style.display = 'flex';
+      document.getElementById('codeInput').focus();
     } else {
-      document.getElementById('gateError').style.display = 'block';
+      errorEl.textContent = data.error || 'Mot de passe incorrect.';
+      errorEl.style.display = 'block';
     }
   } catch(err){
-    document.getElementById('gateError').textContent = 'Erreur de connexion au serveur.';
-    document.getElementById('gateError').style.display = 'block';
+    errorEl.textContent = 'Erreur de connexion au serveur.';
+    errorEl.style.display = 'block';
   }
 }
 
-// Auto-login if password stored in session
+async function verifyCode(){
+  const code = document.getElementById('codeInput').value.trim();
+  const errorEl = document.getElementById('codeError');
+  errorEl.style.display = 'none';
+
+  try {
+    const res = await fetch('https://vitosoli.onrender.com/api/admin/verify-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+
+    if(res.ok && data.token){
+      adminToken = data.token;
+      sessionStorage.setItem('vitosoli_admin_token', adminToken);
+      document.getElementById('codeGate').style.display = 'none';
+      document.getElementById('dashboard').classList.add('visible');
+      loadData();
+    } else {
+      errorEl.textContent = data.error || 'Code incorrect.';
+      errorEl.style.display = 'block';
+    }
+  } catch(err){
+    errorEl.textContent = 'Erreur de connexion au serveur.';
+    errorEl.style.display = 'block';
+  }
+}
+
+// Auto-login si un token admin (encore valide, 1h) est deja stocke pour cet onglet
 window.addEventListener('load', () => {
-  const stored = sessionStorage.getItem('vitosoli_admin_pwd');
+  const stored = sessionStorage.getItem('vitosoli_admin_token');
   if(stored){
-    adminPassword = stored;
-    testAuth();
+    adminToken = stored;
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('dashboard').classList.add('visible');
+    loadData();
   }
 });
 
 async function loadData(){
   try {
+    const headers = { 'x-admin-token': adminToken };
     const [statsRes, usersRes] = await Promise.all([
-      fetch('https://vitosoli.onrender.com/api/admin/stats?password=' + encodeURIComponent(adminPassword)),
-      fetch('https://vitosoli.onrender.com/api/admin/users?password=' + encodeURIComponent(adminPassword))
+      fetch('https://vitosoli.onrender.com/api/admin/stats', { headers }),
+      fetch('https://vitosoli.onrender.com/api/admin/users', { headers })
     ]);
+
+    if(statsRes.status === 401 || usersRes.status === 401){
+      // Token admin expire ou invalide : on repart de zero
+      sessionStorage.removeItem('vitosoli_admin_token');
+      adminToken = '';
+      document.getElementById('dashboard').classList.remove('visible');
+      document.getElementById('gate').style.display = 'flex';
+      return;
+    }
 
     const stats = await statsRes.json();
     const data = await usersRes.json();
